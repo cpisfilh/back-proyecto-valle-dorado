@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { get } from "../controllers/cliente.controller.js";
+import { create, get } from "../controllers/cliente.controller.js";
 
 const router = Router();
 
 router.get("/", get);
+router.post("/create", create);
+// router.post("/update", update);
+// router.post("/delete", delete);
 
 export default router;

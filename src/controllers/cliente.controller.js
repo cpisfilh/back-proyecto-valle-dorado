@@ -1,4 +1,4 @@
-import { getClientes } from "../services/cliente.service.js";
+import { createCliente, getClientes } from "../services/cliente.service.js";
 
 export const get = async (req, res) => {
     const clientes = await getClientes();
@@ -7,5 +7,13 @@ export const get = async (req, res) => {
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
     }
-    
+};
+
+export const create = async (req, res) => {
+    const clientes = await createCliente(req.body);
+    try {
+        res.json({ message: "exito", data: clientes });
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
 };

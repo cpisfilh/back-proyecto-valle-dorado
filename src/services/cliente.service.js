@@ -13,4 +13,9 @@ async function getClientes() {
   return clientes;
 }
 
-export { getClientes };
+async function createCliente(data) {
+  const cliente = await prisma.cliente.create({ data });
+  return cliente;
+}
+
+export { getClientes, createCliente };
