@@ -2,11 +2,8 @@ import prisma from "../orm/prismaClient.js";
 
 async function getClientes() {
   const clientes = await prisma.cliente.findMany({
-    select: {
-      id: true,
-      nombres: true,
-      apellidos: true,
-      celular: true,
+    orderBy: {
+      id: "desc", // Ordena por ID de manera descendente (de más reciente a más antiguo)
     },
   });
 
@@ -18,4 +15,9 @@ async function createCliente(data) {
   return cliente;
 }
 
-export { getClientes, createCliente };
+async function deleteCliente(id) {
+  const cliente = await prisma.cliente.delete({ where: { id } });
+  return cliente;
+}
+
+export { getClientes, createCliente, deleteCliente };
