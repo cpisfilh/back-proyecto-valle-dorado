@@ -1,9 +1,9 @@
-import { createCliente, deleteCliente, getClientes, updateCliente } from "../services/cliente.service.js";
+import { createLote, deleteLote, getLotes, updateLote } from "../services/lote.service.js";
 
 export const get = async (req, res) => {
     try {
-        const clientes = await getClientes();
-        res.json({ message: "exito", data: clientes });
+        const lotes = await getLotes();
+        res.json({ message: "exito", data: lotes });
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
     }
@@ -11,8 +11,8 @@ export const get = async (req, res) => {
 
 export const create = async (req, res) => {
     try {
-        const cliente = await createCliente(req.body);
-        res.json({ message: "exito", data: cliente});
+        const lote = await createLote(req.body);
+        res.json({ message: "exito", data: lote});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
     }
@@ -21,8 +21,8 @@ export const create = async (req, res) => {
 export const update = async (req, res) => {
     try {
         const { id } = req.body;
-        const cliente = await updateCliente(id, req.body);
-        res.json({ message: "exito", data: cliente});
+        const lote = await updateLote(id, req.body);
+        res.json({ message: "exito", data: lote});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
     }
@@ -31,7 +31,7 @@ export const update = async (req, res) => {
 export const remove = async (req, res) => {
     try {
         const { id } = req.body;
-        await deleteCliente(id);
+        await deleteLote(id);
         res.json({ message: "exito" });
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { create, get, remove, update } from "../controllers/cliente.controller.js";
+import { create, get, remove, update } from "../controllers/manzana.controller.js";
 
 const router = Router();
 

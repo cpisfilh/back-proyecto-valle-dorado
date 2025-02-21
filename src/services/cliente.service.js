@@ -15,9 +15,14 @@ async function createCliente(data) {
   return cliente;
 }
 
+async function updateCliente(id, data) {
+  const cliente = await prisma.cliente.update({ where: { id }, data });
+  return cliente;
+}
+
 async function deleteCliente(id) {
   const cliente = await prisma.cliente.delete({ where: { id } });
   return cliente;
 }
 
-export { getClientes, createCliente, deleteCliente };
+export { getClientes, createCliente, updateCliente, deleteCliente };

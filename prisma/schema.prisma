@@ -13,5 +13,20 @@ model cliente {
   nombres    String   @db.VarChar(100)
   apellidos  String   @db.VarChar(100)
   celular    String   @db.VarChar(15)
+  estado     Boolean?
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model lote {
+  id         Int      @id @default(autoincrement())
+  valor      String   @db.VarChar(100)
+  estado     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+}
+
+model manzana {
+  id         Int      @id @default(autoincrement())
+  valor      String   @db.VarChar(100)
+  estado     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
 }
