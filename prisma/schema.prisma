@@ -8,13 +8,14 @@ datasource db {
 }
 
 model cliente {
-  id         Int      @id @default(autoincrement())
-  dni        String   @db.VarChar(8)
-  nombres    String   @db.VarChar(100)
-  apellidos  String   @db.VarChar(100)
-  celular    String   @db.VarChar(15)
-  estado     Boolean?
-  created_at DateTime @default(now()) @db.Timestamp(0)
+  id             Int              @id @default(autoincrement())
+  dni            String           @db.VarChar(8)
+  nombres        String           @db.VarChar(100)
+  apellidos      String           @db.VarChar(100)
+  celular        String           @db.VarChar(15)
+  estado         Boolean?
+  created_at     DateTime         @default(now()) @db.Timestamp(0)
+  cliente_predio cliente_predio[]
 }
 
 model lote {
@@ -22,6 +23,7 @@ model lote {
   valor      String   @db.VarChar(100)
   estado     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
+  predio     predio[]
 }
 
 model manzana {
@@ -29,4 +31,30 @@ model manzana {
   valor      String   @db.VarChar(100)
   estado     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
+  predio     predio[]
+}
+
+model cliente_predio {
+  cliente_id Int
+  predio_id  Int
+  cliente    cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_predio_ibfk_1")
+  predio     predio  @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_predio_ibfk_2")
+
+  @@id([cliente_id, predio_id])
+  @@index([predio_id], map: "predio_id")
+}
+
+model predio {
+  id             Int              @id @default(autoincrement())
+  manzana_id     Int
+  lote_id        Int
+  disponible     Boolean          @default(true)
+  estado         Boolean?         @default(true)
+  created_at     DateTime         @default(now()) @db.Timestamp(0)
+  cliente_predio cliente_predio[]
+  manzana        manzana          @relation(fields: [manzana_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_1")
+  lote           lote             @relation(fields: [lote_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_2")
+
+  @@unique([manzana_id, lote_id], map: "manzana_id")
+  @@index([lote_id], map: "lote_id")
 }

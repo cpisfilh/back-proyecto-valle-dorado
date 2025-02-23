@@ -21,4 +21,9 @@ async function deleteManzana(id) {
   return manzana;
 }
 
-export { getManzanas, createManzana, updateManzana, deleteManzana };
+async function getManzana(id) {
+  const manzana = await prisma.manzana.findUnique({ where: { id } });
+  return manzana;
+}
+
+export { getManzanas, createManzana, updateManzana, deleteManzana, getManzana };
