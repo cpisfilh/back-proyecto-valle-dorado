@@ -80,7 +80,22 @@ model pago {
   predio_id     Int
   created_at    DateTime       @default(now()) @db.Timestamp(0)
   cliente_pago  cliente_pago[]
+  cuota         cuota[]
   predio        predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "pago_ibfk_1")
 
   @@index([predio_id], map: "predio_id")
+}
+
+model cuota {
+  id                Int       @id @default(autoincrement())
+  id_pago           Int
+  numero_cuota      Int
+  monto             Decimal   @db.Decimal(10, 2)
+  fecha_pago        DateTime? @db.Date
+  fecha_vencimiento DateTime  @db.Date
+  estado            Boolean?  @default(false)
+  created_at        DateTime  @default(now()) @db.Timestamp(0)
+  pago              pago      @relation(fields: [id_pago], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cuota_ibfk_1")
+
+  @@index([id_pago], map: "id_pago")
 }
