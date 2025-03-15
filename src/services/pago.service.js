@@ -80,9 +80,39 @@ async function createPago(data) {
 }
 
 async function updatePago(id, data) {
-  const pago = await prisma.pago.update({ where: { id }, data });
+  console.log(`Actualizando pago con ID: ${id}`, data);
+
+  // 1 - Actualizar el pago
+  const pago = await prisma.pago.update({
+    where: { id },
+    data: {
+      cuota_inicial: data.cuotaInicial,
+      precio_total: data.precioTotal,
+      saldo: data.saldo,
+      predio_id: data.predio,
+    },
+  });
+
+  // 2 - Eliminar relaciones previas con clientes
+  await prisma.cliente_pago.deleteMany({
+    where: { pago_id: id },
+  });
+
+  // 3 - Insertar nuevas relaciones con clientes
+  await Promise.all(
+    data.clientes.map(clienteId =>
+      prisma.cliente_pago.create({
+        data: {
+          pago_id: id,
+          cliente_id: clienteId,
+        },
+      })
+    )
+  );
+
   return pago;
 }
+
 
 async function deletePago(id) {
   const pago = await prisma.pago.delete({ where: { id } });
