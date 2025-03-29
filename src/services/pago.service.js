@@ -1,4 +1,5 @@
 import prisma from "../orm/prismaClient.js";
+import {addMonths} from "date-fns";
 
 async function getPagos() {
   const pagos = await prisma.pago.findMany({
@@ -76,6 +77,24 @@ async function createPago(data) {
       })
     )
   );
+
+  // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
+  const fechaInicio = data.fechaInicio ? new Date(data.fechaInicio) : new Date();
+
+  //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
+  //
+  for (let i = 0; i < Number(data.numeroCuotas); i++) {
+    await prisma.cuota.create({
+      data: {
+        estado: false,
+        monto: Math.ceil(Number(data.precioTotal-data.cuotaInicial) / Number(data.numeroCuotas)), //redondear al mayor
+        id_pago: pago.id,
+        numero_cuota: i + 1,
+        fecha_vencimiento:  addMonths(fechaInicio, i + 1) , //se saca de mes a mes
+      },
+    });
+  }
+
   return pago;
 }
 

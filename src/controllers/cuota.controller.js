@@ -1,4 +1,4 @@
-import { createCuota, deleteCuota, getCuotas, updateCuota } from "../services/cuota.service.js";
+import { createCuota, deleteCuota, getCuotas, getCuotaXPago, payCuota, updateCuota,revertPayCuota } from "../services/cuota.service.js";
 
 export const get = async (req, res) => {
     try {
@@ -8,6 +8,15 @@ export const get = async (req, res) => {
         res.status(200).json({ message: "error", error: error.message });
     }
 };
+export const cuotaXPago = async (req, res) => {
+    try {
+        const cuotas = await getCuotaXPago( req.body.id_pago);
+        res.json({ message: "exito", data: cuotas });
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
 
 export const create = async (req, res) => {
     try {
@@ -22,6 +31,26 @@ export const update = async (req, res) => {
     try {
         const { id } = req.body;
         const cuota = await updateCuota(id, req.body);
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const pay = async (req, res) => {
+    try {
+        const { id } = req.body;
+        const cuota = await payCuota(id, req.body);
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const revertpay = async (req, res) => {
+    try {
+        const { id } = req.body;
+        const cuota = await revertPayCuota(id, req.body);
         res.json({ message: "exito", data: cuota});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
