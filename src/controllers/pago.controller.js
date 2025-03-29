@@ -2,6 +2,7 @@ import {
   createPago,
   deletePago,
   getPagos,
+  getPagoXId,
   updatePago,
 } from "../services/pago.service.js";
 
@@ -9,6 +10,16 @@ export const get = async (req, res) => {
   try {
     const pagos = await getPagos();
     res.json({ message: "exito", data: pagos });
+  } catch (error) {
+    res.status(200).json({ message: "error", error: error.message });
+  }
+};
+
+export const getOne = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const pago = await getPagoXId(id);
+    res.json({ message: "exito", data: pago });
   } catch (error) {
     res.status(200).json({ message: "error", error: error.message });
   }

@@ -54,7 +54,7 @@ model predio {
   estado         Boolean?         @default(true)
   created_at     DateTime         @default(now()) @db.Timestamp(0)
   cliente_predio cliente_predio[]
-  pago           pago[]
+  pago           pago?
   manzana        manzana          @relation(fields: [manzana_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_1")
   lote           lote             @relation(fields: [lote_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_2")
 
@@ -73,17 +73,17 @@ model cliente_pago {
 }
 
 model pago {
-  id            Int            @id @default(autoincrement())
-  precio_total  Decimal        @db.Decimal(10, 2)
-  cuota_inicial Decimal        @db.Decimal(10, 2)
-  saldo         Decimal        @db.Decimal(10, 2)
-  predio_id     Int
-  created_at    DateTime       @default(now()) @db.Timestamp(0)
-  cliente_pago  cliente_pago[]
-  cuota         cuota[]
-  predio        predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "pago_ibfk_1")
-
-  @@index([predio_id], map: "predio_id")
+  id                  Int            @id @default(autoincrement())
+  precio_total        Decimal        @db.Decimal(10, 2)
+  cuota_inicial       Decimal        @db.Decimal(10, 2)
+  fecha_cuota_inicial DateTime?      @db.Date
+  saldo               Decimal        @db.Decimal(10, 2)
+  saldo_actual        Decimal?       @db.Decimal(10, 2)
+  predio_id           Int            @unique(map: "predio_id")
+  created_at          DateTime       @default(now()) @db.Timestamp(0)
+  cliente_pago        cliente_pago[]
+  cuota               cuota[]
+  predio              predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "pago_ibfk_1")
 }
 
 model cuota {

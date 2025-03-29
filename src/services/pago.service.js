@@ -21,8 +21,10 @@ async function getPagos() {
   return pagos.map(pago => ({
     id: pago.id,
     cuota_inicial: pago.cuota_inicial,
+    fecha_cuota_inicial : pago.fecha_cuota_inicial,
     precio_total: pago.precio_total,
     saldo: pago.saldo,
+    saldo_actual: pago.saldo_actual,
     predio: {
       id: pago.predio.id,
       manzana: pago.predio.manzana.valor,
@@ -38,6 +40,41 @@ async function getPagos() {
       }))
     ]
   }));
+}
+
+async function getPagoXId(id) {
+  const pago = await prisma.pago.findUnique({
+    where: { id },
+    include: {
+      predio: {
+        include: {
+          manzana: true,
+          lote: true,
+        }
+      },
+      cliente_pago: {
+        include: {
+          cliente: true
+        }
+      }
+    }
+  });
+  return {...pago,
+    cliente_pago: [
+      ...pago.cliente_pago.map(cp => ({
+        id: cp.id,
+        cliente_id: cp.cliente.id,
+        cliente_nombre: cp.cliente.nombres,
+        cliente_apellido: cp.cliente.apellidos,
+        cliente_dni: cp.cliente.dni
+      }))
+    ],
+    predio: {
+      id: pago.predio.id,
+      manzana: pago.predio.manzana.valor,
+      lote: pago.predio.lote.valor
+    }
+  };
 }
 
 async function createPago(data) {
@@ -59,8 +96,10 @@ async function createPago(data) {
       data: {
         cuota_inicial: data.cuotaInicial,
         precio_total: data.precioTotal,
-        saldo: data.saldo,
+        saldo: data.precioTotal-data.cuotaInicial,
+        saldo_actual: data.precioTotal-data.cuotaInicial,
         predio_id: data.predio,
+        fecha_cuota_inicial: data.fechaCuotaInicial
       },
     }
   );
@@ -79,7 +118,7 @@ async function createPago(data) {
   );
 
   // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
-  const fechaInicio = data.fechaInicio ? new Date(data.fechaInicio) : new Date();
+  const fechaInicio = data.fechaCuotaInicial ? new Date(data.fechaCuotaInicial) : new Date();
 
   //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
   //
@@ -94,6 +133,14 @@ async function createPago(data) {
       },
     });
   }
+
+  // 4 - cambiar campo disponifle a false
+  await prisma.predio.update({
+    where: { id: data.predio },
+    data: {
+      disponible: false,
+    },
+  });
 
   return pago;
 }
@@ -135,9 +182,16 @@ async function updatePago(id, data) {
 
 async function deletePago(id) {
   const pago = await prisma.pago.delete({ where: { id } });
+  //Actualizar predio disponible a true
+  await prisma.predio.update({
+    where: { id: pago.predio_id },
+    data: {
+      disponible: true,
+    },
+  });
   return pago;
 }
 
 
 
-export { getPagos, createPago, updatePago, deletePago };
+export { getPagos, createPago, updatePago, deletePago, getPagoXId };

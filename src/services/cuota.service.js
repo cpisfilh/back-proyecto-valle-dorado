@@ -49,6 +49,19 @@ async function payCuota(id, data) {
       fecha_pago: data.fecha_pago
     },
   });
+
+  //traer el pago por id
+  const pago = await prisma.pago.findUnique({
+    where: { id: cuota.id_pago }
+  });
+  console.log(pago);
+  //Actualizar saldo_actual del pago
+  await prisma.pago.update({
+    where: { id: cuota.id_pago },
+    data: {
+      saldo_actual: Number(pago.saldo_actual) - Number(cuota.monto)
+    }
+  });
   return cuota;
 }
 
@@ -60,6 +73,18 @@ async function revertPayCuota(id) {
       estado: false,
       fecha_pago: null
     },
+  });
+
+  //traer el pago por id
+  const pago = await prisma.pago.findUnique({
+    where: { id: cuota.id_pago }
+  });
+  //Actualizar saldo_actual del pago
+  await prisma.pago.update({
+    where: { id: cuota.id_pago },
+    data: {
+      saldo_actual: Number(pago.saldo_actual) + Number(cuota.monto)
+    }
   });
   return cuota;
 }
