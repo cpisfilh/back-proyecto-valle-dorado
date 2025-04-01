@@ -99,3 +99,11 @@ model cuota {
 
   @@index([id_pago], map: "id_pago")
 }
+
+model usuarios {
+  id             Int      @id @default(autoincrement())
+  nombre         String   @db.VarChar(100)
+  email          String   @unique(map: "email") @db.VarChar(100)
+  password       String   @db.VarChar(255)
+  fecha_creacion DateTime @default(now()) @db.Timestamp(0)
+}
