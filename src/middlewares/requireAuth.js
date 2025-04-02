@@ -1,4 +1,7 @@
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 export const requireAuth = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
@@ -12,7 +15,7 @@ export const requireAuth = (req, res, next) => {
         return res.status(200).json({ message: "No autorizado", error: "No autorizado. Token inválido" });
     }
 
-    jwt.verify(token, "secret", (err, user) => {
+    jwt.verify(token, process.env.JTS, (err, user) => {
         if (err) {
             return res.status(200).json({ message: "No autorizado", error: "No autorizado. Token inválido o expirado" });
         }
