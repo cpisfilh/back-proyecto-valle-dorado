@@ -93,6 +93,55 @@ async function deleteCuota(id) {
   const cuota = await prisma.cuota.delete({ where: { id } });
   return cuota;
 }
+async function getFirstToExpire() {
+  const cuotas = await prisma.cuota.findMany({
+    where: { estado: false },
+    orderBy: { fecha_vencimiento: "asc" },
+    take: 5,
+    select: {
+      id: true,
+      monto: true,
+      fecha_vencimiento: true,
+      pago: {
+        select: {
+          predio: {
+            select: {
+              manzana: {
+                select: { valor: true },
+              },
+              lote: {
+                select: { valor: true },
+              },
+              cliente_predio: {
+                select: {
+                  cliente: {
+                    select: {
+                      nombres: true,
+                      apellidos: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const res = cuotas.map((cuota) => ({
+    idCuota: cuota.id,
+    monto: cuota.monto,
+    fecha_vencimiento: cuota.fecha_vencimiento,
+    manzana: cuota.pago.predio.manzana.valor,
+    lote: cuota.pago.predio.lote.valor,
+    clientes: cuota.pago.predio.cliente_predio.map(
+      (cp) => `${cp.cliente.nombres} ${cp.cliente.apellidos}`
+    ),
+  }));
+
+  return res;
+}
 
 export {
   getCuotas,
@@ -102,4 +151,5 @@ export {
   payCuota,
   revertPayCuota,
   deleteCuota,
+  getFirstToExpire
 };
