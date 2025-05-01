@@ -39,8 +39,8 @@ model cliente_predio {
   id         Int     @id @default(autoincrement())
   cliente_id Int
   predio_id  Int
-  cliente    cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_predio_ibfk_1")
-  predio     predio  @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_predio_ibfk_2")
+  cliente    cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_predio_ibfk_1")
+  predio     predio  @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_predio_ibfk_2")
 
   @@unique([cliente_id, predio_id], map: "unique_cliente_predio")
   @@index([predio_id], map: "fk_predio")
@@ -55,8 +55,8 @@ model predio {
   created_at     DateTime         @default(now()) @db.Timestamp(0)
   cliente_predio cliente_predio[]
   pago           pago?
-  manzana        manzana          @relation(fields: [manzana_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_1")
-  lote           lote             @relation(fields: [lote_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "predio_ibfk_2")
+  manzana        manzana          @relation(fields: [manzana_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "predio_ibfk_1")
+  lote           lote             @relation(fields: [lote_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "predio_ibfk_2")
 
   @@unique([manzana_id, lote_id], map: "manzana_id")
   @@index([lote_id], map: "lote_id")
@@ -65,8 +65,8 @@ model predio {
 model cliente_pago {
   cliente_id Int
   pago_id    Int
-  cliente    cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_pago_ibfk_1")
-  pago       pago    @relation(fields: [pago_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cliente_pago_ibfk_2")
+  cliente    cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_pago_ibfk_1")
+  pago       pago    @relation(fields: [pago_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cliente_pago_ibfk_2")
 
   @@id([cliente_id, pago_id])
   @@index([pago_id], map: "pago_id")
@@ -77,25 +77,26 @@ model pago {
   precio_total        Decimal        @db.Decimal(10, 2)
   cuota_inicial       Decimal        @db.Decimal(10, 2)
   fecha_cuota_inicial DateTime?      @db.Date
-  saldo               Decimal        @db.Decimal(10, 2)
+  saldo               Decimal?       @db.Decimal(10, 2)
   saldo_actual        Decimal?       @db.Decimal(10, 2)
   predio_id           Int            @unique(map: "predio_id")
   created_at          DateTime       @default(now()) @db.Timestamp(0)
   cliente_pago        cliente_pago[]
   cuota               cuota[]
-  predio              predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "pago_ibfk_1")
+  predio              predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pago_ibfk_1")
 }
 
 model cuota {
   id                Int       @id @default(autoincrement())
   id_pago           Int
-  numero_cuota      Int
+  numero_cuota      Int?
   monto             Decimal   @db.Decimal(10, 2)
   fecha_pago        DateTime? @db.Date
-  fecha_vencimiento DateTime  @db.Date
+  fecha_vencimiento DateTime? @db.Date
   estado            Boolean?  @default(false)
   created_at        DateTime  @default(now()) @db.Timestamp(0)
-  pago              pago      @relation(fields: [id_pago], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "cuota_ibfk_1")
+  tipo              String?   @default("MENSUAL") @db.VarChar(10)
+  pago              pago      @relation(fields: [id_pago], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cuota_ibfk_1")
 
   @@index([id_pago], map: "id_pago")
 }

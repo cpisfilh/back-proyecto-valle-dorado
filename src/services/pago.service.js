@@ -1,5 +1,6 @@
 import prisma from "../orm/prismaClient.js";
-import {addMonths} from "date-fns";
+import { addExactMonthPreservingDate, parseFechaReferenciaUTC } from "../utils/generics.js";
+// import {addMonths} from "date-fns";
 
 async function getPagos() {
   const pagos = await prisma.pago.findMany({
@@ -90,16 +91,15 @@ async function createPago(data) {
   // }
   // 1 - Crear el pago
   //
-  console.log(data);
   const pago = await prisma.pago.create(
     {
       data: {
         cuota_inicial: data.cuotaInicial,
         precio_total: data.precioTotal,
-        saldo: data.precioTotal-data.cuotaInicial,
-        saldo_actual: data.precioTotal-data.cuotaInicial,
+        saldo: data.precioTotal,
+        saldo_actual: data.precioTotal,
         predio_id: data.predio,
-        fecha_cuota_inicial: data.fechaCuotaInicial
+        // fecha_cuota_inicial: data.fechaCuotaInicial
       },
     }
   );
@@ -118,21 +118,31 @@ async function createPago(data) {
   );
 
   // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
-  const fechaInicio = data.fechaCuotaInicial ? new Date(data.fechaCuotaInicial) : new Date();
-
-  //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
-  //
-  for (let i = 0; i < Number(data.numeroCuotas); i++) {
-    await prisma.cuota.create({
-      data: {
-        estado: false,
-        monto: Math.ceil(Number(data.precioTotal-data.cuotaInicial) / Number(data.numeroCuotas)), //redondear al mayor
-        id_pago: pago.id,
-        numero_cuota: i + 1,
-        fecha_vencimiento:  addMonths(fechaInicio, i + 1) , //se saca de mes a mes
-      },
-    });
-  }
+    const fechaInicio = parseFechaReferenciaUTC(data.fechaCuotaInicial);
+  
+    //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
+    const cuotas = Number(data.numeroCuotas);
+    const total = Number(data.precioTotal);
+    const inicial = Number(data.cuotaInicial);
+  
+    if (isNaN(cuotas) || isNaN(total) || isNaN(inicial)) {
+      throw new Error("Datos numéricos inválidos.");
+    }
+    //
+    for (let i = 0; i < Number(data.numeroCuotas
+    ); i++) {
+      await prisma.cuota.create({
+        data: {
+          estado: false,
+          monto: Math.ceil(Number(data.precioTotal - data.cuotaInicial) / Number(data.numeroCuotas)), //redondear al mayor
+          numero_cuota: i + 1,
+          fecha_vencimiento: addExactMonthPreservingDate(fechaInicio, i + 1), //se saca de mes a mes
+          pago: {
+          connect: { id: pago.id }, // <- conexión correcta con la relación
+        },
+        },
+      });
+    }
 
   // 4 - cambiar campo disponifle a false
   await prisma.predio.update({

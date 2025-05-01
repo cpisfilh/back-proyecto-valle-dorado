@@ -1,4 +1,6 @@
 import prisma from "../orm/prismaClient.js";
+import {addExactMonthPreservingDate, parseFechaReferenciaUTC } from "../utils/generics.js";
+
 
 async function getCuotas() {
   const cuotas = await prisma.cuota.findMany({
@@ -31,6 +33,12 @@ async function getCuotaXPago(id_pago) {
 
 async function createCuota(data) {
   const cuota = await prisma.cuota.create({ data });
+  return cuota;
+}
+
+async function registrarCuotaInicial(data) {
+  const cuota = await prisma.cuota.create({ data });
+
   return cuota;
 }
 
@@ -143,13 +151,45 @@ async function getFirstToExpire() {
   return res;
 }
 
+async function cuotasGenerate(data) {
+  console.log(data);
+
+  // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
+  const fechaInicio = parseFechaReferenciaUTC(data.fecha_referencia);
+
+  //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
+  const cuotas = Number(data.numero_cuotas);
+  const total = Number(data.precioTotal);
+  const inicial = Number(data.cuotaInicial);
+
+  if (isNaN(cuotas) || isNaN(total) || isNaN(inicial)) {
+    throw new Error("Datos numéricos inválidos.");
+  }
+  //
+  for (let i = 0; i < Number(data.numero_cuotas); i++) {
+    await prisma.cuota.create({
+      data: {
+        estado: false,
+        monto: Math.ceil(Number(data.precioTotal - data.cuotaInicial) / Number(data.numero_cuotas)), //redondear al mayor
+        numero_cuota: i + 1,
+        fecha_vencimiento: addExactMonthPreservingDate(fechaInicio, i + 1), //se saca de mes a mes
+        pago: {
+          connect: { id: data.id_pago }, // <- conexión correcta con la relación
+        },
+      },
+    });
+  }
+}
+
 export {
   getCuotas,
   getCuotaXPago,
   createCuota,
+  registrarCuotaInicial,
   updateCuota,
   payCuota,
   revertPayCuota,
   deleteCuota,
-  getFirstToExpire
+  getFirstToExpire,
+  cuotasGenerate
 };

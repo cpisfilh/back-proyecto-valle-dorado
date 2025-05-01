@@ -1,4 +1,4 @@
-import { createCuota, deleteCuota, getCuotas, getCuotaXPago, payCuota, updateCuota,revertPayCuota, getFirstToExpire } from "../services/cuota.service.js";
+import { createCuota, deleteCuota, getCuotas, getCuotaXPago, payCuota, updateCuota,revertPayCuota, getFirstToExpire, registrarCuotaInicial, cuotasGenerate } from "../services/cuota.service.js";
 
 export const get = async (req, res) => {
     try {
@@ -21,6 +21,15 @@ export const cuotaXPago = async (req, res) => {
 export const create = async (req, res) => {
     try {
         const cuota = await createCuota(req.body);
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const createCuotaInicial = async (req, res) => {
+    try {
+        const cuota = await registrarCuotaInicial(req.body);
         res.json({ message: "exito", data: cuota});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
@@ -70,6 +79,15 @@ export const remove = async (req, res) => {
 export const firstToExpire = async (req, res) => {
     try {
         const cuota = await getFirstToExpire();
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const postCuotasGenerate = async (req, res) => {
+    try {
+        const cuota = await cuotasGenerate(req.body);
         res.json({ message: "exito", data: cuota});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
