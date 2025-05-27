@@ -3,6 +3,7 @@ import {
   deletePago,
   getPagos,
   getPagoXId,
+  postSearchPagos,
   updatePago,
 } from "../services/pago.service.js";
 
@@ -49,6 +50,16 @@ export const remove = async (req, res) => {
     const { id } = req.body;
     await deletePago(id);
     res.json({ message: "exito" });
+  } catch (error) {
+    res.status(200).json({ message: "error", error: error.message });
+  }
+};
+
+export const search = async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    const pagos = await postSearchPagos(nombre);
+    res.json({ message: "exito", data: pagos });
   } catch (error) {
     res.status(200).json({ message: "error", error: error.message });
   }
