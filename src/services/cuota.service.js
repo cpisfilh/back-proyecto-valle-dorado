@@ -27,7 +27,7 @@ async function getCuotas() {
 }
 
 async function getCuotaXPago(id_pago) {
-  const cuotas = await prisma.cuota.findMany({ where: { id_pago } });
+  const cuotas = await prisma.cuota.findMany({ where: { id_pago }, include: { subcuota: true } });
   return cuotas;
 }
 
