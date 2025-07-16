@@ -265,10 +265,19 @@ async function postSearchPagos(nombre) {
   }
 }
 
+async function updateCurrentBalance(id,data) {
+  await prisma.pago.update({
+    where: { id },
+    data: {
+      saldo_actual: Number(data.data),
+    },
+  });
+} 
 
 
 
 
 
 
-export { getPagos, createPago, updatePago, deletePago, getPagoXId, postSearchPagos };
+
+export { getPagos, createPago, updatePago, deletePago, getPagoXId, postSearchPagos,updateCurrentBalance };

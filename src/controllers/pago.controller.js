@@ -4,6 +4,7 @@ import {
   getPagos,
   getPagoXId,
   postSearchPagos,
+  updateCurrentBalance,
   updatePago,
 } from "../services/pago.service.js";
 
@@ -60,6 +61,16 @@ export const search = async (req, res) => {
     const { nombre } = req.body;
     const pagos = await postSearchPagos(nombre);
     res.json({ message: "exito", data: pagos });
+  } catch (error) {
+    res.status(200).json({ message: "error", error: error.message });
+  }
+};
+
+export const updateBalance = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const pago = await updateCurrentBalance(id, req.body);
+    res.json({ message: "exito", data: pago });
   } catch (error) {
     res.status(200).json({ message: "error", error: error.message });
   }

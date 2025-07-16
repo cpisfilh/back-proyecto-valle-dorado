@@ -1,4 +1,4 @@
-import { createCuota, deleteCuota, getCuotas, getCuotaXPago, payCuota, updateCuota,revertPayCuota, getFirstToExpire, registrarCuotaInicial, cuotasGenerate } from "../services/cuota.service.js";
+import { createCuota, deleteCuota, getCuotas, getCuotaXPago, payCuota, updateCuota,revertPayCuota, getFirstToExpire, registrarCuotaInicial, cuotasGenerate, deleteCuotaPago, createCuotaMensualPago, deleteCuotaMensualPago, updateCuotaMensual } from "../services/cuota.service.js";
 
 export const get = async (req, res) => {
     try {
@@ -36,10 +36,29 @@ export const createCuotaInicial = async (req, res) => {
     }
 };
 
+export const createCuotaMensual = async (req, res) => {
+    try {
+        const cuota = await createCuotaMensualPago(req.body);
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
 export const update = async (req, res) => {
     try {
         const { id } = req.body;
         const cuota = await updateCuota(id, req.body);
+        res.json({ message: "exito", data: cuota});
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const updatemensual = async (req, res) => {
+    try {
+        const { id } = req.body;
+        const cuota = await updateCuotaMensual(id, req.body);
         res.json({ message: "exito", data: cuota});
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
@@ -70,6 +89,26 @@ export const remove = async (req, res) => {
     try {
         const { id } = req.body;
         await deleteCuota(id);
+        res.json({ message: "exito" });
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const removeOfPago = async (req, res) => {
+    try {
+        const { id } = req.body;
+        await deleteCuotaPago(id);
+        res.json({ message: "exito" });
+    } catch (error) {
+        res.status(200).json({ message: "error", error: error.message });
+    }
+};
+
+export const removeMensualOfPago = async (req, res) => {
+    try {
+        const { id } = req.body;
+        await deleteCuotaMensualPago(id);
         res.json({ message: "exito" });
     } catch (error) {
         res.status(200).json({ message: "error", error: error.message });
