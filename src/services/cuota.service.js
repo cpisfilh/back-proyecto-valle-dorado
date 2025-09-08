@@ -231,7 +231,7 @@ async function getFirstToExpire() {
   const cuotas = await prisma.cuota.findMany({
     where: { estado: false },
     orderBy: { fecha_vencimiento: "asc" },
-    take: 10,
+    take: 20,
     select: {
       id: true,
       monto: true,
