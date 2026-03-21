@@ -16,22 +16,13 @@ jobs:
       - name: 🚀 Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /root/app
-
-            echo "📥 Pull latest code"
-            git pull origin main
-
-            echo "📦 Install dependencies"
-            npm install --omit=dev --no-audit --no-fund
-
-            echo "⚙️ Prisma generate"
-            npx prisma generate
-
-            echo "🔄 Restart backend"
-            pm2 restart backend
-
-            echo "✅ Deploy finished"
+            host: ${{ secrets.HOST }}
+            username: ${{ secrets.USERNAME }}
+            key: ${{ secrets.SSH_PRIVATE_KEY_BASE64 }}
+            key_format: base64
+            script: |
+              cd /root/app
+              git pull origin main
+              npm install --omit=dev --no-audit --no-fund
+              npx prisma generate
+              pm2 restart backend
