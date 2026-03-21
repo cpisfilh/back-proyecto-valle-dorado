@@ -13,11 +13,18 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-            host: ${{ secrets.HOST }}
-            username: ${{ secrets.USERNAME }}
-            key: ${{ secrets.SSH_PRIVATE_KEY }}
-            port: 22
-            debug: true
+      - name: 🔑 Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: 🚀 Deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@${{ secrets.HOST }} << 'EOF'
+            cd /root/app
+            git pull origin main
+            npm install --omit=dev --no-audit --no-fund
+            npx prisma generate
+            pm2 restart backend
+          EOF
