@@ -135,7 +135,12 @@ async function createPago(req, data) {
       precio_total: data.precioTotal,
       saldo: data.precioTotal,
       saldo_actual: data.precioTotal,
-      predio_id: data.predio,
+
+      predio: {
+            connect: {
+              id: data.predio
+            }
+          },
 
       proyecto: {
         connect: {
