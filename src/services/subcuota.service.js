@@ -60,7 +60,11 @@ async function createSubCuota(req, data) {
 
       numero_subcuota: numeroCuotaActual + 1,
 
-      proyecto_id: proyectoId,
+      proyecto: {
+            connect: {
+              id: proyectoId
+            }
+          },
 
       cuota: {
         connect: {

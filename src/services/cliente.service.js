@@ -18,10 +18,17 @@ async function createCliente(req, data) {
 
   const proyectoId = req.user.proyectoId;
 
+  const { proyecto_id, ...safeData } = data;
+
   return await prisma.cliente.create({
     data: {
-      ...data,
-      proyecto_id: proyectoId,
+      ...safeData,
+
+      proyecto: {
+        connect: {
+          id: proyectoId
+        }
+      }
     },
   });
 }

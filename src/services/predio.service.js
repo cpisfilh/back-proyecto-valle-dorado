@@ -37,10 +37,17 @@ async function createPredio(req, data) {
     throw new Error("Lote no encontrado.");
   }
 
+  const { proyecto_id, ...safeData } = data;
+
   return await prisma.predio.create({
     data: {
-      ...data,
-      proyecto_id: proyectoId
+      ...safeData,
+
+      proyecto: {
+        connect: {
+          id: proyectoId
+        }
+      }
     }
   });
 }
