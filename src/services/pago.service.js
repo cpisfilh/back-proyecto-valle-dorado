@@ -136,7 +136,12 @@ async function createPago(req, data) {
       saldo: data.precioTotal,
       saldo_actual: data.precioTotal,
       predio_id: data.predio,
-      proyecto_id: proyectoId,
+
+      proyecto: {
+        connect: {
+          id: proyectoId
+        }
+      }
     },
   });
 
@@ -184,7 +189,11 @@ async function createPago(req, data) {
           fechaInicio,
           i + 1
         ),
-        proyecto_id: proyectoId,
+        proyecto: {
+          connect: {
+            id: proyectoId
+          }
+        },
         pago: {
           connect: {
             id: pago.id

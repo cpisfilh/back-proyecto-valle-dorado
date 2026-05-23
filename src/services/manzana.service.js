@@ -15,10 +15,17 @@ async function createManzana(req, data) {
 
   const proyectoId = req.user.proyectoId;
 
+  const { proyecto_id, ...safeData } = data;
+
   return await prisma.manzana.create({
     data: {
-      ...data,
-      proyecto_id: proyectoId
+      ...safeData,
+
+      proyecto: {
+        connect: {
+          id: proyectoId
+        }
+      }
     }
   });
 }
