@@ -1,9 +1,17 @@
 import prisma from "../orm/prismaClient.js";
-import {addExactMonthPreservingDate, parseFechaReferenciaUTC } from "../utils/generics.js";
+import {
+  addExactMonthPreservingDate,
+  parseFechaReferenciaUTC
+} from "../utils/generics.js";
 
+async function getCuotas(req) {
 
-async function getCuotas() {
+  const proyectoId = req.user.proyectoId;
+
   const cuotas = await prisma.cuota.findMany({
+    where: {
+      proyecto_id: proyectoId
+    },
     include: {
       pago: {
         include: {
@@ -17,6 +25,7 @@ async function getCuotas() {
       },
     },
   });
+
   return cuotas.map((cuota) => ({
     ...cuota,
     predio: {
@@ -26,211 +35,434 @@ async function getCuotas() {
   }));
 }
 
-async function getCuotaXPago(id_pago) {
-  const cuotas = await prisma.cuota.findMany({ where: { id_pago }, include: { subcuota: true } });
-  return cuotas;
+async function getCuotaXPago(req, id_pago) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cuota.findMany({
+    where: {
+      id_pago,
+      proyecto_id: proyectoId
+    },
+    include: {
+      subcuota: true
+    }
+  });
 }
 
-async function createCuota(data) {
-  const cuota = await prisma.cuota.create({ data });
-  return cuota;
-}
+async function createCuota(req, data) {
 
-async function createCuotaMensualPago(data) {
-  //Crear la cuota
-  const cuota = await prisma.cuota.create({ data });
-  //Sumar el monto a MontoInicial y a SaldoActual del pago
-  await prisma.pago.update({
-    where: { id: cuota.id_pago },
+  const proyectoId = req.user.proyectoId;
+
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: data.id_pago,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!pago) {
+    throw new Error("Pago no encontrado.");
+  }
+
+  return await prisma.cuota.create({
     data: {
-      saldo_actual: { increment: Number(cuota.monto) },
+      ...data,
+      proyecto_id: proyectoId
+    }
+  });
+}
+
+async function createCuotaMensualPago(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: data.id_pago,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!pago) {
+    throw new Error("Pago no encontrado.");
+  }
+
+  const cuota = await prisma.cuota.create({
+    data: {
+      ...data,
+      proyecto_id: proyectoId
+    }
+  });
+
+  await prisma.pago.updateMany({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
+    },
+    data: {
+      saldo_actual: {
+        increment: Number(cuota.monto)
+      },
     },
   });
-  return cuota;
-}
-
-async function registrarCuotaInicial(data) {
-  const cuota = await prisma.cuota.create({ data });
 
   return cuota;
 }
 
-async function updateCuota(id, data) {
-  const cuota = await prisma.cuota.update({ where: { id }, data });
-  return cuota;
+async function registrarCuotaInicial(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cuota.create({
+    data: {
+      ...data,
+      proyecto_id: proyectoId
+    }
+  });
 }
-async function updateCuotaMensual(id, data) {
-  // 1. Actualizar la cuota
-  const cuotaActualizada = await prisma.cuota.update({ where: { id }, data });
 
-  // 2. Verificar si es de tipo MENSUAL
-  if (cuotaActualizada.tipo !== "MENSUAL") return cuotaActualizada;
+async function updateCuota(req, id, data) {
 
-  // 3. Obtener cuotas MENSUALES PENDIENTES restantes (incluyendo la actualizada si quedó pendiente)
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cuota.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
+    data
+  });
+}
+
+async function updateCuotaMensual(req, id, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  const cuotaActualizada = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!cuotaActualizada) {
+    throw new Error("Cuota no encontrada.");
+  }
+
+  await prisma.cuota.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
+    data
+  });
+
+  const cuotaNueva = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (cuotaNueva.tipo !== "MENSUAL") {
+    return cuotaNueva;
+  }
+
   const cuotasPendientes = await prisma.cuota.findMany({
     where: {
-      id_pago: cuotaActualizada.id_pago,
+      id_pago: cuotaNueva.id_pago,
       tipo: "MENSUAL",
-      estado: false, // pendientes
+      estado: false,
+      proyecto_id: proyectoId
     },
     select: {
       monto: true
     }
   });
 
-  // 4. Sumar montos de cuotas pendientes
-  const totalPendiente = cuotasPendientes.reduce((acc, c) => acc + Number(c.monto), 0);
+  const totalPendiente = cuotasPendientes.reduce(
+    (acc, c) => acc + Number(c.monto),
+    0
+  );
 
-  // 5. Obtener cuota inicial
-  const pago = await prisma.pago.findUnique({
-    where: { id: cuotaActualizada.id_pago },
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: cuotaNueva.id_pago,
+      proyecto_id: proyectoId
+    },
     select: {
       cuota_inicial: true
     }
   });
 
-  // 6. Calcular nuevo saldo actual
-  const nuevoSaldo = Number(pago.cuota_inicial) + totalPendiente;
+  const nuevoSaldo =
+    Number(pago.cuota_inicial)
+    +
+    totalPendiente;
 
-  // 7. Actualizar saldo_actual en el pago
-  await prisma.pago.update({
-    where: { id: cuotaActualizada.id_pago },
+  await prisma.pago.updateMany({
+    where: {
+      id: cuotaNueva.id_pago,
+      proyecto_id: proyectoId
+    },
     data: {
       saldo_actual: nuevoSaldo
     }
   });
 
-  return cuotaActualizada;
+  return cuotaNueva;
 }
 
+async function payCuota(req, id, data) {
 
-async function payCuota(id, data) {
-  console.log(data);
+  const proyectoId = req.user.proyectoId;
 
-  const cuota = await prisma.cuota.update({
-    where: { id },
+  const cuota = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!cuota) {
+    throw new Error("Cuota no encontrada.");
+  }
+
+  await prisma.cuota.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
     data: {
       estado: true,
       fecha_pago: data.fecha_pago
     },
   });
 
-  //traer el pago por id
-  const pago = await prisma.pago.findUnique({
-    where: { id: cuota.id_pago }
-  });
-  console.log(pago);
-  //Actualizar saldo_actual del pago
-  await prisma.pago.update({
-    where: { id: cuota.id_pago },
-    data: {
-      saldo_actual: Number(pago.saldo_actual) - Number(cuota.monto)
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
     }
   });
+
+  await prisma.pago.updateMany({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
+    },
+    data: {
+      saldo_actual:
+        Number(pago.saldo_actual)
+        -
+        Number(cuota.monto)
+    }
+  });
+
   return cuota;
 }
 
-async function revertPayCuota(id) {
+async function revertPayCuota(req, id) {
 
-  const cuota = await prisma.cuota.update({
-    where: { id },
+  const proyectoId = req.user.proyectoId;
+
+  const cuota = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!cuota) {
+    throw new Error("Cuota no encontrada.");
+  }
+
+  await prisma.cuota.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
     data: {
       estado: false,
       fecha_pago: null
     },
   });
 
-  //traer el pago por id
-  const pago = await prisma.pago.findUnique({
-    where: { id: cuota.id_pago }
-  });
-  //Actualizar saldo_actual del pago
-  await prisma.pago.update({
-    where: { id: cuota.id_pago },
-    data: {
-      saldo_actual: Number(pago.saldo_actual) + Number(cuota.monto)
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
     }
   });
+
+  await prisma.pago.updateMany({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
+    },
+    data: {
+      saldo_actual:
+        Number(pago.saldo_actual)
+        +
+        Number(cuota.monto)
+    }
+  });
+
   return cuota;
 }
 
-async function deleteCuota(id) {
-  const cuota = await prisma.cuota.delete({ where: { id } });
-  return cuota;
-}
-async function deleteCuotaPago(id) {
-  //traer cuota por id
-  const cuota = await prisma.cuota.findUnique({ where: { id } });
+async function deleteCuota(req, id) {
 
-  //verificar si su estado es pendiente (0) o pagado(1)
-  if (cuota.estado == 0) {
-    await prisma.cuota.delete({ where: { id } });
-  } else {
-    //si el estado es pagado, borrar y actualizar el saldo del pago
-    //traer el pago por id
-    const pago = await prisma.pago.findUnique({
-      where: { id: cuota.id_pago }
-    });
-    //Actualizar saldo_actual del pago
-    await prisma.pago.update({
-      where: { id: cuota.id_pago },
-      data: {
-        saldo_actual: Number(pago.saldo_actual) + Number(cuota.monto)
-      }
-    });
-    await prisma.cuota.delete({ where: { id } });
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cuota.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+}
+
+async function deleteCuotaPago(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  const cuota = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!cuota) {
+    throw new Error("Cuota no encontrada.");
   }
 
+  if (cuota.estado == 0) {
+
+    await prisma.cuota.deleteMany({
+      where: {
+        id,
+        proyecto_id: proyectoId
+      }
+    });
+
+  } else {
+
+    const pago = await prisma.pago.findFirst({
+      where: {
+        id: cuota.id_pago,
+        proyecto_id: proyectoId
+      }
+    });
+
+    await prisma.pago.updateMany({
+      where: {
+        id: cuota.id_pago,
+        proyecto_id: proyectoId
+      },
+      data: {
+        saldo_actual:
+          Number(pago.saldo_actual)
+          +
+          Number(cuota.monto)
+      }
+    });
+
+    await prisma.cuota.deleteMany({
+      where: {
+        id,
+        proyecto_id: proyectoId
+      }
+    });
+  }
 }
-async function deleteCuotaMensualPago(id) {
-  // 1. Obtener la cuota a eliminar
-  const cuota = await prisma.cuota.findUnique({ where: { id } });
-  if (!cuota) throw new Error("Cuota no encontrada");
-  if (cuota.tipo !== "MENSUAL") throw new Error("Solo se pueden eliminar cuotas de tipo MENSUAL");
 
-  // 2. Eliminar la cuota
-  await prisma.cuota.delete({ where: { id } });
+async function deleteCuotaMensualPago(req, id) {
 
-  // 3. Obtener el pago asociado y sus cuotas MENSUALES PENDIENTES restantes
+  const proyectoId = req.user.proyectoId;
+
+  const cuota = await prisma.cuota.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!cuota) {
+    throw new Error("Cuota no encontrada");
+  }
+
+  if (cuota.tipo !== "MENSUAL") {
+    throw new Error(
+      "Solo se pueden eliminar cuotas de tipo MENSUAL"
+    );
+  }
+
+  await prisma.cuota.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
   const cuotasRestantes = await prisma.cuota.findMany({
     where: {
       id_pago: cuota.id_pago,
       tipo: "MENSUAL",
-      estado: false // pendientes
+      estado: false,
+      proyecto_id: proyectoId
     },
     select: {
       monto: true
     }
   });
 
-  // 4. Sumar montos de cuotas pendientes
-  const sumaCuotasPendientes = cuotasRestantes.reduce((acc, c) => acc + Number(c.monto), 0);
+  const sumaCuotasPendientes =
+    cuotasRestantes.reduce(
+      (acc, c) => acc + Number(c.monto),
+      0
+    );
 
-  // 5. Obtener cuota_inicial
-  const pago = await prisma.pago.findUnique({
-    where: { id: cuota.id_pago },
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
+    },
     select: {
       cuota_inicial: true
     }
   });
 
-  // 6. Calcular nuevo saldo_actual
-  const nuevoSaldo = Number(pago.cuota_inicial) + sumaCuotasPendientes;
+  const nuevoSaldo =
+    Number(pago.cuota_inicial)
+    +
+    sumaCuotasPendientes;
 
-  // 7. Actualizar el saldo_actual en el pago
-  await prisma.pago.update({
-    where: { id: cuota.id_pago },
+  await prisma.pago.updateMany({
+    where: {
+      id: cuota.id_pago,
+      proyecto_id: proyectoId
+    },
     data: {
       saldo_actual: nuevoSaldo
     }
   });
 }
 
+async function getFirstToExpire(req) {
 
-async function getFirstToExpire() {
+  const proyectoId = req.user.proyectoId;
+
   const cuotas = await prisma.cuota.findMany({
-    where: { estado: false },
-    orderBy: { fecha_vencimiento: "asc" },
+    where: {
+      estado: false,
+      proyecto_id: proyectoId
+    },
+    orderBy: {
+      fecha_vencimiento: "asc"
+    },
     take: 20,
     select: {
       id: true,
@@ -241,10 +473,14 @@ async function getFirstToExpire() {
           predio: {
             select: {
               manzana: {
-                select: { valor: true },
+                select: {
+                  valor: true
+                },
               },
               lote: {
-                select: { valor: true },
+                select: {
+                  valor: true
+                },
               },
               cliente_predio: {
                 select: {
@@ -263,44 +499,73 @@ async function getFirstToExpire() {
     },
   });
 
-  const res = cuotas.map((cuota) => ({
+  return cuotas.map((cuota) => ({
     idCuota: cuota.id,
     monto: cuota.monto,
     fecha_vencimiento: cuota.fecha_vencimiento,
     manzana: cuota.pago.predio.manzana.valor,
     lote: cuota.pago.predio.lote.valor,
     clientes: cuota.pago.predio.cliente_predio.map(
-      (cp) => `${cp.cliente.nombres} ${cp.cliente.apellidos}`
+      (cp) =>
+        `${cp.cliente.nombres} ${cp.cliente.apellidos}`
     ),
   }));
-
-  return res;
 }
 
-async function cuotasGenerate(data) {
-  console.log(data);
+async function cuotasGenerate(req, data) {
 
-  // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
-  const fechaInicio = parseFechaReferenciaUTC(data.fecha_referencia);
+  const proyectoId = req.user.proyectoId;
 
-  //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id: data.id_pago,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!pago) {
+    throw new Error("Pago no encontrado.");
+  }
+
+  const fechaInicio = parseFechaReferenciaUTC(
+    data.fecha_referencia
+  );
+
   const cuotas = Number(data.numero_cuotas);
   const total = Number(data.precioTotal);
   const inicial = Number(data.cuotaInicial);
 
-  if (isNaN(cuotas) || isNaN(total) || isNaN(inicial)) {
+  if (
+    isNaN(cuotas)
+    ||
+    isNaN(total)
+    ||
+    isNaN(inicial)
+  ) {
     throw new Error("Datos numéricos inválidos.");
   }
-  //
+
   for (let i = 0; i < Number(data.numero_cuotas); i++) {
+
     await prisma.cuota.create({
       data: {
         estado: false,
-        monto: Math.ceil(Number(data.precioTotal - data.cuotaInicial) / Number(data.numero_cuotas)), //redondear al mayor
+        monto: Math.ceil(
+          Number(data.precioTotal - data.cuotaInicial)
+          /
+          Number(data.numero_cuotas)
+        ),
         numero_cuota: i + 1,
-        fecha_vencimiento: addExactMonthPreservingDate(fechaInicio, i + 1), //se saca de mes a mes
+        fecha_vencimiento:
+          addExactMonthPreservingDate(
+            fechaInicio,
+            i + 1
+          ),
+        proyecto_id: proyectoId,
         pago: {
-          connect: { id: data.id_pago }, // <- conexión correcta con la relación
+          connect: {
+            id: data.id_pago
+          },
         },
       },
     });

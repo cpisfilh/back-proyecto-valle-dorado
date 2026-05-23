@@ -1,29 +1,69 @@
 import prisma from "../orm/prismaClient.js";
 
-async function getManzanas() {
-  const manzanas = await prisma.manzana.findMany();
+async function getManzanas(req) {
 
-  return manzanas;
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.manzana.findMany({
+    where: {
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-async function createManzana(data) {
-  const manzana = await prisma.manzana.create({ data });
-  return manzana;
+async function createManzana(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.manzana.create({
+    data: {
+      ...data,
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-async function updateManzana(id, data) {
-  const manzana = await prisma.manzana.update({ where: { id }, data });
-  return manzana;
+async function updateManzana(req, id, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.manzana.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
+    data
+  });
 }
 
-async function deleteManzana(id) {
-  const manzana = await prisma.manzana.delete({ where: { id } });
-  return manzana;
+async function deleteManzana(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.manzana.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-async function getManzana(id) {
-  const manzana = await prisma.manzana.findUnique({ where: { id } });
-  return manzana;
+async function getManzana(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.manzana.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-export { getManzanas, createManzana, updateManzana, deleteManzana, getManzana };
+export {
+  getManzanas,
+  createManzana,
+  updateManzana,
+  deleteManzana,
+  getManzana
+};

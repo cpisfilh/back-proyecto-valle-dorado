@@ -1,28 +1,59 @@
 import prisma from "../orm/prismaClient.js";
 
-async function getClientes() {
-  const clientes = await prisma.cliente.findMany({
+async function getClientes(req) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cliente.findMany({
+    where: {
+      proyecto_id: proyectoId,
+    },
     orderBy: {
-      id: "desc", // Ordena por ID de manera descendente (de más reciente a más antiguo)
+      id: "desc",
     },
   });
-
-  return clientes;
 }
 
-async function createCliente(data) {
-  const cliente = await prisma.cliente.create({ data });
-  return cliente;
+async function createCliente(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cliente.create({
+    data: {
+      ...data,
+      proyecto_id: proyectoId,
+    },
+  });
 }
 
-async function updateCliente(id, data) {
-  const cliente = await prisma.cliente.update({ where: { id }, data });
-  return cliente;
+async function updateCliente(req, id, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cliente.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId,
+    },
+    data,
+  });
 }
 
-async function deleteCliente(id) {
-  const cliente = await prisma.cliente.delete({ where: { id } });
-  return cliente;
+async function deleteCliente(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.cliente.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId,
+    },
+  });
 }
 
-export { getClientes, createCliente, updateCliente, deleteCliente };
+export {
+  getClientes,
+  createCliente,
+  updateCliente,
+  deleteCliente,
+};

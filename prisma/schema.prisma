@@ -9,6 +9,7 @@ datasource db {
 
 model cliente {
   id             Int              @id @default(autoincrement())
+  proyecto_id    Int
   dni            String           @db.VarChar(8)
   nombres        String           @db.VarChar(100)
   apellidos      String           @db.VarChar(100)
@@ -17,22 +18,28 @@ model cliente {
   created_at     DateTime         @default(now()) @db.Timestamp(0)
   cliente_pago   cliente_pago[]
   cliente_predio cliente_predio[]
+  proyecto       proyecto?        @relation(fields: [proyecto_id], references: [id])
 }
 
 model lote {
   id         Int      @id @default(autoincrement())
+  proyecto_id Int
   valor      String   @db.VarChar(100)
   estado     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
   predio     predio[]
+  proyecto   proyecto? @relation(fields: [proyecto_id], references: [id])
 }
 
 model manzana {
   id         Int      @id @default(autoincrement())
+  proyecto_id Int
   valor      String   @db.VarChar(100)
   estado     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamp(0)
   predio     predio[]
+
+  proyecto   proyecto? @relation(fields: [proyecto_id], references: [id])
 }
 
 model cliente_predio {
@@ -48,17 +55,19 @@ model cliente_predio {
 
 model predio {
   id             Int              @id @default(autoincrement())
+  proyecto_id    Int
   manzana_id     Int
   lote_id        Int
   disponible     Boolean          @default(true)
   estado         Boolean?         @default(true)
   created_at     DateTime         @default(now()) @db.Timestamp(0)
   cliente_predio cliente_predio[]
-  pago           pago?
+  pago           pago[]
   manzana        manzana          @relation(fields: [manzana_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "predio_ibfk_1")
   lote           lote             @relation(fields: [lote_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "predio_ibfk_2")
+  proyecto       proyecto?        @relation(fields: [proyecto_id], references: [id])
 
-  @@unique([manzana_id, lote_id], map: "manzana_id")
+  @@unique([proyecto_id, manzana_id, lote_id])
   @@index([lote_id], map: "lote_id")
 }
 
@@ -74,20 +83,25 @@ model cliente_pago {
 
 model pago {
   id                  Int            @id @default(autoincrement())
+  proyecto_id         Int
   precio_total        Decimal        @db.Decimal(10, 2)
   cuota_inicial       Decimal        @db.Decimal(10, 2)
   fecha_cuota_inicial DateTime?      @db.Date
   saldo               Decimal?       @db.Decimal(10, 2)
   saldo_actual        Decimal?       @db.Decimal(10, 2)
-  predio_id           Int            @unique(map: "predio_id")
+  predio_id           Int
   created_at          DateTime       @default(now()) @db.Timestamp(0)
   cliente_pago        cliente_pago[]
   cuota               cuota[]
   predio              predio         @relation(fields: [predio_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pago_ibfk_1")
+  proyecto            proyecto?      @relation(fields: [proyecto_id], references: [id])
+
+  @@unique([proyecto_id, predio_id])
 }
 
 model cuota {
   id                Int        @id @default(autoincrement())
+  proyecto_id       Int
   id_pago           Int
   numero_cuota      Int?
   monto             Decimal    @db.Decimal(10, 2)
@@ -98,6 +112,7 @@ model cuota {
   tipo              String?    @default("MENSUAL") @db.VarChar(10)
   pago              pago       @relation(fields: [id_pago], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cuota_ibfk_1")
   subcuota          subcuota[]
+  proyecto          proyecto?   @relation(fields: [proyecto_id], references: [id])
 
   @@index([id_pago], map: "id_pago")
 }
@@ -112,6 +127,7 @@ model usuarios {
 
 model subcuota {
   id                Int       @id @default(autoincrement())
+  proyecto_id       Int
   id_cuota          Int
   numero_subcuota   Int?
   monto             Decimal?  @db.Decimal(10, 2)
@@ -120,6 +136,49 @@ model subcuota {
   estado            Boolean?  @default(false)
   created_at        DateTime  @default(now()) @db.Timestamp(0)
   cuota             cuota     @relation(fields: [id_cuota], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "subcuota_ibfk_1")
+  proyecto          proyecto? @relation(fields: [proyecto_id], references: [id])
 
   @@index([id_cuota], map: "id_cuota")
+  @@index([proyecto_id], map: "proyecto_id")
+}
+
+model empresa {
+  id          Int       @id @default(autoincrement())
+  nombre      String
+  ruc         String?
+  nro_partida String?
+  direccion   String?
+  telefono    String?
+  email       String?
+  created_at  DateTime  @default(now())
+
+  proyectos   proyecto[]
+
+  @@map("empresa")
+}
+
+model proyecto {
+  id           Int       @id @default(autoincrement())
+  empresa_id   Int
+
+  nombre       String
+  code         String    @unique
+  registro_catastral String?
+  partida_registral String?
+  direccion    String?
+  estado       Boolean   @default(true)
+
+  created_at   DateTime  @default(now())
+
+  empresa      empresa   @relation(fields: [empresa_id], references: [id])
+
+  clientes     cliente[]
+  manzanas     manzana[]
+  lotes       lote[]
+  predios     predio[]
+  pagos       pago[]
+  cuotas      cuota[]
+  subcuotas   subcuota[]
+
+  @@map("proyecto")
 }
