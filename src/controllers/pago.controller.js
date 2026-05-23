@@ -10,68 +10,160 @@ import {
 
 export const get = async (req, res) => {
   try {
-    const pagos = await getPagos();
-    res.json({ message: "exito", data: pagos });
+
+    const pagos = await getPagos(req);
+
+    res.json({
+      message: "exito",
+      data: pagos
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const getOne = async (req, res) => {
   try {
+
     const { id } = req.body;
-    const pago = await getPagoXId(id);
-    res.json({ message: "exito", data: pago });
+
+    const pago = await getPagoXId(req, id);
+
+    res.json({
+      message: "exito",
+      data: pago
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const create = async (req, res) => {
   try {
-    const pago = await createPago(req.body);
-    res.json({ message: "exito", data: pago });
+
+    const pago = await createPago(req, req.body);
+
+    res.json({
+      message: "exito",
+      data: pago
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const update = async (req, res) => {
   try {
+
     const { id } = req.body;
-    const pago = await updatePago(id, req.body);
-    res.json({ message: "exito", data: pago });
+
+    const pago = await updatePago(
+      req,
+      id,
+      req.body
+    );
+
+    res.json({
+      message: "exito",
+      data: pago
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const remove = async (req, res) => {
   try {
+
     const { id } = req.body;
-    await deletePago(id);
-    res.json({ message: "exito" });
+
+    await deletePago(req, id);
+
+    res.json({
+      message: "exito"
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const search = async (req, res) => {
   try {
+
     const { nombre } = req.body;
-    const pagos = await postSearchPagos(nombre);
-    res.json({ message: "exito", data: pagos });
+
+    const pagos = await postSearchPagos(
+      req,
+      nombre
+    );
+
+    res.json({
+      message: "exito",
+      data: pagos
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const updateBalance = async (req, res) => {
   try {
+
     const { id } = req.body;
-    const pago = await updateCurrentBalance(id, req.body);
-    res.json({ message: "exito", data: pago });
+
+    const pago = await updateCurrentBalance(
+      req,
+      id,
+      req.body
+    );
+
+    res.json({
+      message: "exito",
+      data: pago
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };

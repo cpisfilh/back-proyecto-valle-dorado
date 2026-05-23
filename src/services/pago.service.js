@@ -1,9 +1,17 @@
 import prisma from "../orm/prismaClient.js";
-import { addExactMonthPreservingDate, parseFechaReferenciaUTC } from "../utils/generics.js";
-// import {addMonths} from "date-fns";
+import {
+  addExactMonthPreservingDate,
+  parseFechaReferenciaUTC
+} from "../utils/generics.js";
 
-async function getPagos() {
+async function getPagos(req) {
+
+  const proyectoId = req.user.proyectoId;
+
   const pagos = await prisma.pago.findMany({
+    where: {
+      proyecto_id: proyectoId
+    },
     include: {
       predio: {
         include: {
@@ -43,9 +51,15 @@ async function getPagos() {
   }));
 }
 
-async function getPagoXId(id) {
-  const pago = await prisma.pago.findUnique({
-    where: { id },
+async function getPagoXId(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
     include: {
       predio: {
         include: {
@@ -60,6 +74,11 @@ async function getPagoXId(id) {
       }
     }
   });
+
+  if (!pago) {
+    throw new Error("Pago no encontrado.");
+  }
+
   return {
     ...pago,
     cliente_pago: [
@@ -79,34 +98,49 @@ async function getPagoXId(id) {
   };
 }
 
-async function createPago(data) {
-  //   body que llegará al servicio:
-  //   {
-  //     "clientes": [
-  //         2
-  //     ],
-  //     "precioTotal": "10000",
-  //     "cuotaInicial": "1234",
-  //     "saldo": "343",
-  //     "predio": 1
-  // }
-  // 1 - Crear el pago
-  //
-  const pago = await prisma.pago.create(
-    {
-      data: {
-        cuota_inicial: data.cuotaInicial,
-        precio_total: data.precioTotal,
-        saldo: data.precioTotal,
-        saldo_actual: data.precioTotal,
-        predio_id: data.predio,
-        // fecha_cuota_inicial: data.fechaCuotaInicial
-      },
-    }
-  );
+async function createPago(req, data) {
 
-  // 2 - Relacionar el pago con los clientes
-  //
+  const proyectoId = req.user.proyectoId;
+
+  // VALIDAR PREDIO
+  const predio = await prisma.predio.findFirst({
+    where: {
+      id: data.predio,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!predio) {
+    throw new Error("Predio no encontrado.");
+  }
+
+  // VALIDAR CLIENTES
+  const clientes = await prisma.cliente.findMany({
+    where: {
+      id: {
+        in: data.clientes
+      },
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (clientes.length !== data.clientes.length) {
+    throw new Error("Clientes inválidos.");
+  }
+
+  // CREAR PAGO
+  const pago = await prisma.pago.create({
+    data: {
+      cuota_inicial: data.cuotaInicial,
+      precio_total: data.precioTotal,
+      saldo: data.precioTotal,
+      saldo_actual: data.precioTotal,
+      predio_id: data.predio,
+      proyecto_id: proyectoId,
+    },
+  });
+
+  // RELACIONAR CLIENTES
   await Promise.all(
     data.clientes.map(clienteId =>
       prisma.cliente_pago.create({
@@ -118,36 +152,54 @@ async function createPago(data) {
     )
   );
 
-  // Suponiendo que data.fechaInicio es la fecha de pago inicial (hoy si no está definida)
-  const fechaInicio = parseFechaReferenciaUTC(data.fechaCuotaInicial);
+  const fechaInicio = parseFechaReferenciaUTC(
+    data.fechaCuotaInicial
+  );
 
-  //3 - crear cuotas (tenemos el precio total, cuota inicial y la cantidad de cuotas)
   const cuotas = Number(data.numeroCuotas);
   const total = Number(data.precioTotal);
   const inicial = Number(data.cuotaInicial);
 
-  if (isNaN(cuotas) || isNaN(total) || isNaN(inicial)) {
+  if (
+    isNaN(cuotas) ||
+    isNaN(total) ||
+    isNaN(inicial)
+  ) {
     throw new Error("Datos numéricos inválidos.");
   }
-  //
-  for (let i = 0; i < Number(data.numeroCuotas
-  ); i++) {
+
+  // CREAR CUOTAS
+  for (let i = 0; i < Number(data.numeroCuotas); i++) {
+
     await prisma.cuota.create({
       data: {
         estado: false,
-        monto: Math.ceil(Number(data.precioTotal - data.cuotaInicial) / Number(data.numeroCuotas)), //redondear al mayor
+        monto: Math.ceil(
+          Number(data.precioTotal - data.cuotaInicial)
+          /
+          Number(data.numeroCuotas)
+        ),
         numero_cuota: i + 1,
-        fecha_vencimiento: addExactMonthPreservingDate(fechaInicio, i + 1), //se saca de mes a mes
+        fecha_vencimiento: addExactMonthPreservingDate(
+          fechaInicio,
+          i + 1
+        ),
+        proyecto_id: proyectoId,
         pago: {
-          connect: { id: pago.id }, // <- conexión correcta con la relación
+          connect: {
+            id: pago.id
+          },
         },
       },
     });
   }
 
-  // 4 - cambiar campo disponifle a false
-  await prisma.predio.update({
-    where: { id: data.predio },
+  // ACTUALIZAR DISPONIBILIDAD
+  await prisma.predio.updateMany({
+    where: {
+      id: data.predio,
+      proyecto_id: proyectoId
+    },
     data: {
       disponible: false,
     },
@@ -156,12 +208,15 @@ async function createPago(data) {
   return pago;
 }
 
-async function updatePago(id, data) {
-  console.log(`Actualizando pago con ID: ${id}`, data);
+async function updatePago(req, id, data) {
 
-  // 1 - Actualizar el pago
-  const pago = await prisma.pago.update({
-    where: { id },
+  const proyectoId = req.user.proyectoId;
+
+  const pago = await prisma.pago.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
     data: {
       cuota_inicial: data.cuotaInicial,
       precio_total: data.precioTotal,
@@ -170,12 +225,14 @@ async function updatePago(id, data) {
     },
   });
 
-  // 2 - Eliminar relaciones previas con clientes
+  // ELIMINAR CLIENTES RELACIONADOS
   await prisma.cliente_pago.deleteMany({
-    where: { pago_id: id },
+    where: {
+      pago_id: id
+    },
   });
 
-  // 3 - Insertar nuevas relaciones con clientes
+  // INSERTAR NUEVOS CLIENTES
   await Promise.all(
     data.clientes.map(clienteId =>
       prisma.cliente_pago.create({
@@ -190,25 +247,56 @@ async function updatePago(id, data) {
   return pago;
 }
 
+async function deletePago(req, id) {
 
-async function deletePago(id) {
-  const pago = await prisma.pago.delete({ where: { id } });
-  //Actualizar predio disponible a true
-  await prisma.predio.update({
-    where: { id: pago.predio_id },
+  const proyectoId = req.user.proyectoId;
+
+  const pago = await prisma.pago.findFirst({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  if (!pago) {
+    throw new Error("Pago no encontrado.");
+  }
+
+  await prisma.pago.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
+
+  // LIBERAR PREDIO
+  await prisma.predio.updateMany({
+    where: {
+      id: pago.predio_id,
+      proyecto_id: proyectoId
+    },
     data: {
       disponible: true,
     },
   });
+
   return pago;
 }
 
-async function postSearchPagos(nombre) {
+async function postSearchPagos(req, nombre) {
+
+  const proyectoId = req.user.proyectoId;
+
   try {
+
     const nombreTrim = nombre.trim();
+
     const applyFilter = nombreTrim !== "";
 
     const pagos = await prisma.pago.findMany({
+      where: {
+        proyecto_id: proyectoId
+      },
       include: {
         predio: {
           include: {
@@ -226,17 +314,34 @@ async function postSearchPagos(nombre) {
 
     const pagosFiltrados = applyFilter
       ? pagos.filter((pago) => {
-          const manzana = pago.predio.manzana?.valor || "";
-          const lote = pago.predio.lote?.valor || "";
-          const combinado = `${manzana}-${lote}`.toLowerCase();
+
+          const manzana =
+            pago.predio.manzana?.valor || "";
+
+          const lote =
+            pago.predio.lote?.valor || "";
+
+          const combinado =
+            `${manzana}-${lote}`.toLowerCase();
 
           return (
             pago.cliente_pago.some((cp) =>
-              cp.cliente.nombres?.toLowerCase().includes(nombreTrim.toLowerCase()) ||
-              cp.cliente.apellidos?.toLowerCase().includes(nombreTrim.toLowerCase()) ||
-              cp.cliente.dni?.toLowerCase().includes(nombreTrim.toLowerCase())
-            ) ||
-            combinado.includes(nombreTrim.toLowerCase())
+              cp.cliente.nombres
+                ?.toLowerCase()
+                .includes(nombreTrim.toLowerCase())
+              ||
+              cp.cliente.apellidos
+                ?.toLowerCase()
+                .includes(nombreTrim.toLowerCase())
+              ||
+              cp.cliente.dni
+                ?.toLowerCase()
+                .includes(nombreTrim.toLowerCase())
+            )
+            ||
+            combinado.includes(
+              nombreTrim.toLowerCase()
+            )
           );
         })
       : pagos;
@@ -259,25 +364,38 @@ async function postSearchPagos(nombre) {
         lote: pago.predio.lote?.valor,
       },
     }));
+
   } catch (error) {
+
     console.error("Error obteniendo pagos:", error);
-    throw new Error("Ocurrió un error al obtener los pagos");
+
+    throw new Error(
+      "Ocurrió un error al obtener los pagos"
+    );
   }
 }
 
-async function updateCurrentBalance(id,data) {
-  await prisma.pago.update({
-    where: { id },
+async function updateCurrentBalance(req, id, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  await prisma.pago.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
     data: {
       saldo_actual: Number(data.data),
     },
   });
-} 
+}
 
-
-
-
-
-
-
-export { getPagos, createPago, updatePago, deletePago, getPagoXId, postSearchPagos,updateCurrentBalance };
+export {
+  getPagos,
+  createPago,
+  updatePago,
+  deletePago,
+  getPagoXId,
+  postSearchPagos,
+  updateCurrentBalance
+};

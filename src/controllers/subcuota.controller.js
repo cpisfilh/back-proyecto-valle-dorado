@@ -1,5 +1,5 @@
 import {
-    createSubCuota,
+  createSubCuota,
   deleteSubCuota,
   getSubCuotas,
   updateSubCuota,
@@ -7,38 +7,90 @@ import {
 
 export const get = async (req, res) => {
   try {
-    const subcuotas = await getSubCuotas();
-    res.json({ message: "exito", data: subcuotas });
+
+    const subcuotas = await getSubCuotas(req);
+
+    res.json({
+      message: "exito",
+      data: subcuotas
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const create = async (req, res) => {
   try {
-    const subcuota = await createSubCuota(req.body);
-    res.json({ message: "exito", data: subcuota });
+
+    const subcuota = await createSubCuota(
+      req,
+      req.body
+    );
+
+    res.json({
+      message: "exito",
+      data: subcuota
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const update = async (req, res) => {
   try {
+
     const { id } = req.body;
-    const subcuota = await updateSubCuota(id, req.body);
-    res.json({ message: "exito", data: subcuota });
+
+    const subcuota = await updateSubCuota(
+      req,
+      id,
+      req.body
+    );
+
+    res.json({
+      message: "exito",
+      data: subcuota
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };
 
 export const remove = async (req, res) => {
   try {
+
     const { id } = req.body;
-    await deleteSubCuota(id);
-    res.json({ message: "exito" });
+
+    await deleteSubCuota(req, id);
+
+    res.json({
+      message: "exito"
+    });
+
   } catch (error) {
-    res.status(200).json({ message: "error", error: error.message });
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
+
   }
 };

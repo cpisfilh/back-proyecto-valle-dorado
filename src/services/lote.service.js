@@ -1,24 +1,56 @@
 import prisma from "../orm/prismaClient.js";
 
-async function getLotes() {
-  const lotes = await prisma.lote.findMany();
+async function getLotes(req) {
 
-  return lotes;
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.lote.findMany({
+    where: {
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-async function createLote(data) {
-  const lote = await prisma.lote.create({ data });
-  return lote;
+async function createLote(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.lote.create({
+    data: {
+      ...data,
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-async function updateLote(id, data) {
-  const lote = await prisma.lote.update({ where: { id }, data });
-  return lote;
+async function updateLote(req, id, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.lote.updateMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    },
+    data
+  });
 }
 
-async function deleteLote(id) {
-  const lote = await prisma.lote.delete({ where: { id } });
-  return lote;
+async function deleteLote(req, id) {
+
+  const proyectoId = req.user.proyectoId;
+
+  return await prisma.lote.deleteMany({
+    where: {
+      id,
+      proyecto_id: proyectoId
+    }
+  });
 }
 
-export { getLotes, createLote, updateLote, deleteLote };
+export {
+  getLotes,
+  createLote,
+  updateLote,
+  deleteLote
+};

@@ -7,6 +7,7 @@ import pagoRoutes from "./pago.routes.js";
 import cuotaRoutes from "./cuota.routes.js";
 import authRoutes from "./auth.routes.js";
 import subCuotaRoutes from "./subcuota.routes.js";
+import proyectoRoutes from "./proyecto.routes.js";
 
 const router = Router();
 
@@ -18,5 +19,7 @@ router.use("/pago", pagoRoutes);
 router.use("/cuota", cuotaRoutes);
 router.use("/subcuota", subCuotaRoutes);
 router.use("/auth", authRoutes);
+router.use("/proyecto", proyectoRoutes);
+
 
 export default router;
