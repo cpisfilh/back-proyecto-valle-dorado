@@ -121,9 +121,14 @@ async function createCuotaMensualPago(req, data) {
 }
 
 async function registrarCuotaInicial(req, data) {
+
   const proyectoId = req.user.proyectoId;
 
-  const { proyecto_id, ...safeData } = data;
+  const {
+    proyecto_id,
+    id_pago,
+    ...safeData
+  } = data;
 
   return await prisma.cuota.create({
     data: {
@@ -134,6 +139,12 @@ async function registrarCuotaInicial(req, data) {
           id: proyectoId,
         },
       },
+
+      pago: {
+        connect: {
+          id: id_pago
+        }
+      }
     },
   });
 }
