@@ -12,7 +12,9 @@ import {
   deleteCuotaPago,
   createCuotaMensualPago,
   deleteCuotaMensualPago,
-  updateCuotaMensual
+  updateCuotaMensual,
+  uploadReceiptFile,
+  generateReceiptUrl
 } from "../services/cuota.service.js";
 
 export const get = async (req, res) => {
@@ -334,6 +336,61 @@ export const postCuotasGenerate = async (req, res) => {
     res.status(200).json({
       message: "error",
       error: error.message
+    });
+
+  }
+};
+
+export const uploadReceipt = async (
+  req,
+  res
+) => {
+  try {
+
+    const result = await uploadReceiptFile(
+      req,
+      req.body.cuota_id,
+      req.file
+    );
+
+    res.json({
+      message: "exito",
+      data: result,
+    });
+
+  } catch (error) {
+
+    res.status(200).json({
+      message: "error",
+      error: error.message,
+    });
+
+  }
+};
+
+export const getReceiptUrl = async (
+  req,
+  res
+) => {
+
+  try {
+
+    const result =
+      await generateReceiptUrl(
+        req,
+        req.params.id
+      );
+
+    res.json({
+      message: "exito",
+      data: result,
+    });
+
+  } catch (error) {
+
+    res.status(200).json({
+      message: "error",
+      error: error.message,
     });
 
   }
