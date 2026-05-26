@@ -14,10 +14,14 @@ import {
   removeOfPago,
   createCuotaMensual,
   removeMensualOfPago,
-  updatemensual
+  updatemensual,
+  uploadReceipt,
+  getReceiptUrl
 } from "../controllers/cuota.controller.js";
 
 import { requireAuth } from "../middlewares/requireAuth.js";
+
+import { upload } from "../middlewares/upload.js";
 
 const router = Router();
 
@@ -83,6 +87,19 @@ router.post(
   "/cuotasGenerate",
   requireAuth,
   postCuotasGenerate
+);
+
+router.post(
+  "/uploadReceipt",
+  requireAuth,
+  upload.single("file"),
+  uploadReceipt
+);
+
+router.get(
+  "/getReceiptUrl/:id",
+  requireAuth,
+  getReceiptUrl
 );
 
 export default router;
