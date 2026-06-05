@@ -571,6 +571,7 @@ async function uploadReceiptFile(
 ) {
 
   const proyectoId = req.user.proyectoId;
+  const bucketName = process.env.SUPABASE_BUCKET_NAME;
 
   if (!file) {
     throw new Error(
@@ -649,7 +650,7 @@ async function uploadReceiptFile(
 
       const { error: removeError } =
         await supabase.storage
-          .from("recibos_shr")
+          .from(bucketName)
           .remove([cuota.file_url]);
 
       if (removeError) {
@@ -698,7 +699,7 @@ async function uploadReceiptFile(
 
     const { error } =
       await supabase.storage
-        .from("recibos_shr")
+        .from(bucketName)
         .upload(
           fileName,
           compressedBuffer,
@@ -783,6 +784,8 @@ async function generateReceiptUrl(
   const proyectoId =
     req.user.proyectoId;
 
+  const bucketName = process.env.SUPABASE_BUCKET_NAME;
+
   const cuota = await prisma.cuota.findFirst({
     where: {
       id: Number(cuotaId),
@@ -806,7 +809,7 @@ async function generateReceiptUrl(
     data,
     error,
   } = await supabase.storage
-    .from("recibos_shr")
+    .from(bucketName)
     .createSignedUrl(
       cuota.file_url,
       60 * 5
