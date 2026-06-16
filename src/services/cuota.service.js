@@ -68,7 +68,7 @@ async function createCuota(req, data) {
     throw new Error("Pago no encontrado.");
   }
 
-  const { proyecto_id, ...safeData } = data;
+  const { proyecto_id, id_pago, ...safeData } = data;
 
   return await prisma.cuota.create({
     data: {
@@ -77,6 +77,11 @@ async function createCuota(req, data) {
       proyecto: {
         connect: {
           id: proyectoId,
+        },
+      },
+      pago: {
+        connect: {
+          id: id_pago,
         },
       },
     },
@@ -97,7 +102,7 @@ async function createCuotaMensualPago(req, data) {
     throw new Error("Pago no encontrado.");
   }
 
-  const { proyecto_id, ...safeData } = data;
+  const { proyecto_id, id_pago, ...safeData } = data;
 
   const cuota = await prisma.cuota.create({
     data: {
@@ -106,6 +111,11 @@ async function createCuotaMensualPago(req, data) {
       proyecto: {
         connect: {
           id: proyectoId,
+        },
+      },
+      pago: {
+        connect: {
+          id: id_pago,
         },
       },
     },
