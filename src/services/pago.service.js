@@ -222,6 +222,189 @@ async function createPago(req, data) {
   return pago;
 }
 
+async function createPagosByPredios(req, data) {
+
+  const proyectoId = req.user.proyectoId;
+
+  // Compatibilidad con la versión anterior
+  const predios = data.predios ?? [data.predio];
+
+  return await prisma.$transaction(async (tx) => {
+
+    // VALIDAR PREDIOS
+    const prediosDb = await tx.predio.findMany({
+      where: {
+        id: {
+          in: predios
+        },
+        proyecto_id: proyectoId
+      }
+    });
+
+    if (prediosDb.length !== predios.length) {
+      throw new Error("Uno o más predios no fueron encontrados.");
+    }
+
+    // VALIDAR QUE LOS PREDIOS NO TENGAN UN PAGO
+    const pagosExistentes = await tx.pago.findMany({
+      where: {
+        proyecto_id: proyectoId,
+        predio_id: {
+          in: predios
+        }
+      },
+      include: {
+        predio: {
+          select: {
+            id: true,
+            manzana: {
+              select: {
+                valor: true,
+              },
+            },
+            lote: {
+              select: {
+                valor: true,
+              },
+            },
+          }
+        }
+      }
+    });
+
+    if (pagosExistentes.length > 0) {
+
+      const lista = pagosExistentes
+        .map(p => `${p.predio?.manzana?.valor ?? "N/A"} - ${p.predio?.lote?.valor ?? "N/A"} (ID ${p.predio_id})`)
+        .join(", ");
+
+      throw new Error(
+        `Los siguientes predios ya tienen un plan de pagos: ${lista}`
+      );
+    }
+
+    // VALIDAR CLIENTES
+    const clientes = await tx.cliente.findMany({
+      where: {
+        id: {
+          in: data.clientes
+        },
+        proyecto_id: proyectoId
+      }
+    });
+
+    if (clientes.length !== data.clientes.length) {
+      throw new Error("Clientes inválidos.");
+    }
+
+    const fechaInicio = parseFechaReferenciaUTC(
+      data.fechaCuotaInicial
+    );
+
+    const cuotas = Number(data.numeroCuotas);
+    const total = Number(data.precioTotal);
+    const inicial = Number(data.cuotaInicial);
+
+    if (
+      isNaN(cuotas) ||
+      isNaN(total) ||
+      isNaN(inicial)
+    ) {
+      throw new Error("Datos numéricos inválidos.");
+    }
+
+    const pagos = [];
+
+    // CREAR UN PAGO POR CADA PREDIO
+    for (const predioId of predios) {
+
+      // CREAR PAGO
+      const pago = await tx.pago.create({
+        data: {
+          cuota_inicial: data.cuotaInicial,
+          precio_total: data.precioTotal,
+          saldo: data.precioTotal,
+          saldo_actual: data.precioTotal,
+
+          predio: {
+            connect: {
+              id: predioId
+            }
+          },
+
+          proyecto: {
+            connect: {
+              id: proyectoId
+            }
+          }
+        },
+      });
+
+      // RELACIONAR CLIENTES
+      await Promise.all(
+        data.clientes.map(clienteId =>
+          tx.cliente_pago.create({
+            data: {
+              pago_id: pago.id,
+              cliente_id: clienteId,
+            },
+          })
+        )
+      );
+
+      // CREAR CUOTAS
+      for (let i = 0; i < Number(data.numeroCuotas); i++) {
+
+        await tx.cuota.create({
+          data: {
+            estado: false,
+            monto: Math.ceil(
+              Number(data.precioTotal - data.cuotaInicial)
+              /
+              Number(data.numeroCuotas)
+            ),
+            numero_cuota: i + 1,
+            fecha_vencimiento: addExactMonthPreservingDate(
+              fechaInicio,
+              i + 1
+            ),
+            proyecto: {
+              connect: {
+                id: proyectoId
+              }
+            },
+            pago: {
+              connect: {
+                id: pago.id
+              },
+            },
+          },
+        });
+      }
+
+      // ACTUALIZAR DISPONIBILIDAD
+      await tx.predio.updateMany({
+        where: {
+          id: predioId,
+          proyecto_id: proyectoId
+        },
+        data: {
+          disponible: false,
+        },
+      });
+
+      pagos.push(pago);
+    }
+
+    // Si solo se creó un pago, devuelve un objeto (compatibilidad)
+    if (pagos.length === 1) {
+      return pagos[0];
+    }
+
+    return pagos;
+  });
+}
+
 async function updatePago(req, id, data) {
 
   const proyectoId = req.user.proyectoId;
@@ -407,6 +590,7 @@ async function updateCurrentBalance(req, id, data) {
 export {
   getPagos,
   createPago,
+  createPagosByPredios,
   updatePago,
   deletePago,
   getPagoXId,

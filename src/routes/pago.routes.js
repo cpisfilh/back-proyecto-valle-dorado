@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   create,
+  createByPredios,
   get,
   getOne,
   remove,
@@ -21,6 +22,8 @@ router.post("/getOne", requireAuth, getOne);
 router.post("/create", requireAuth, create);
 
 router.post("/edit", requireAuth, update);
+
+router.post("/createByPredios", requireAuth, createByPredios);
 
 router.post("/delete", requireAuth, remove);
 
