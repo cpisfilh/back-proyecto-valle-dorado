@@ -1,5 +1,6 @@
 import {
   createPago,
+  createPagosByPredios,
   deletePago,
   getPagos,
   getPagoXId,
@@ -67,6 +68,25 @@ export const create = async (req, res) => {
       error: error.message
     });
 
+  }
+};
+
+export const createByPredios = async (req, res) => {
+  try {
+
+    const pago = await createPagosByPredios(req, req.body);
+
+    res.json({
+      message: "exito",
+      data: pago
+    });
+
+  } catch (error) {
+
+    res.status(200).json({
+      message: "error",
+      error: error.message
+    });
   }
 };
 
