@@ -225,17 +225,12 @@ async function createPago(req, data) {
 async function createPagosByPredios(req, data) {
   const proyectoId = req.user.proyectoId;
 
-  // Compatibilidad con la versión anterior:
-  // - Nueva versión: data.predios = [1, 2, 3]
-  // - Versión anterior: data.predio = 1
+  // Compatibilidad con la versión anterior
   const predios = data.predios ?? [data.predio];
 
   return await prisma.$transaction(
     async (tx) => {
-      // ============================================================
-      // 1. VALIDAR PREDIOS
-      // ============================================================
-
+      // VALIDAR PREDIOS
       const prediosDb = await tx.predio.findMany({
         where: {
           id: {
@@ -249,10 +244,7 @@ async function createPagosByPredios(req, data) {
         throw new Error("Uno o más predios no fueron encontrados.");
       }
 
-      // ============================================================
-      // 2. VALIDAR QUE LOS PREDIOS NO TENGAN UN PLAN DE PAGOS
-      // ============================================================
-
+      // VALIDAR QUE LOS PREDIOS NO TENGAN UN PAGO
       const pagosExistentes = await tx.pago.findMany({
         where: {
           proyecto_id: proyectoId,
@@ -282,10 +274,10 @@ async function createPagosByPredios(req, data) {
       if (pagosExistentes.length > 0) {
         const lista = pagosExistentes
           .map(
-            (pago) =>
-              `${pago.predio?.manzana?.valor ?? "N/A"} - ${
-                pago.predio?.lote?.valor ?? "N/A"
-              } (ID ${pago.predio_id})`
+            (p) =>
+              `${p.predio?.manzana?.valor ?? "N/A"} - ${
+                p.predio?.lote?.valor ?? "N/A"
+              } (ID ${p.predio_id})`
           )
           .join(", ");
 
@@ -294,10 +286,7 @@ async function createPagosByPredios(req, data) {
         );
       }
 
-      // ============================================================
-      // 3. VALIDAR CLIENTES
-      // ============================================================
-
+      // VALIDAR CLIENTES
       const clientes = await tx.cliente.findMany({
         where: {
           id: {
@@ -311,43 +300,33 @@ async function createPagosByPredios(req, data) {
         throw new Error("Clientes inválidos.");
       }
 
-      // ============================================================
-      // 4. PREPARAR Y VALIDAR DATOS
-      // ============================================================
+      const fechaInicio = parseFechaReferenciaUTC(
+        data.fechaCuotaInicial
+      );
 
-      const fechaInicio = parseFechaReferenciaUTC(data.fechaCuotaInicial);
-
-      const numeroCuotas = Number(data.numeroCuotas);
-      const precioTotal = Number(data.precioTotal);
-      const cuotaInicial = Number(data.cuotaInicial);
+      const cuotas = Number(data.numeroCuotas);
+      const total = Number(data.precioTotal);
+      const inicial = Number(data.cuotaInicial);
 
       if (
-        Number.isNaN(numeroCuotas) ||
-        Number.isNaN(precioTotal) ||
-        Number.isNaN(cuotaInicial)
+        isNaN(cuotas) ||
+        isNaN(total) ||
+        isNaN(inicial)
       ) {
         throw new Error("Datos numéricos inválidos.");
       }
 
       const montoCuota = Math.ceil(
-        (precioTotal - cuotaInicial) / numeroCuotas
+        (total - inicial) / cuotas
       );
 
       const pagos = [];
 
-      // ============================================================
-      // 5. CREAR UN PAGO POR CADA PREDIO
-      // ============================================================
-
+      // CREAR UN PAGO POR CADA PREDIO
       for (const predioId of predios) {
-        // ----------------------------------------------------------
         // CREAR PAGO
-        // ----------------------------------------------------------
-
         const pago = await tx.pago.create({
           data: {
-            // Mantengo los valores originales para conservar
-            // exactamente el comportamiento anterior.
             cuota_inicial: data.cuotaInicial,
             precio_total: data.precioTotal,
             saldo: data.precioTotal,
@@ -367,58 +346,61 @@ async function createPagosByPredios(req, data) {
           },
         });
 
-        // ----------------------------------------------------------
         // RELACIONAR CLIENTES
-        // ----------------------------------------------------------
-        // Antes se ejecutaba un create por cliente.
-        // Ahora se realiza un solo INSERT múltiple.
+        //
+        // Mantengo create individual porque sabemos con certeza
+        // que esta estructura funciona con tu schema actual.
+        for (const clienteId of data.clientes) {
+          await tx.cliente_pago.create({
+            data: {
+              pago_id: pago.id,
+              cliente_id: clienteId,
+            },
+          });
+        }
 
-        await tx.cliente_pago.createMany({
-          data: data.clientes.map((clienteId) => ({
-            pago_id: pago.id,
-            cliente_id: clienteId,
-          })),
-        });
-
-        // ----------------------------------------------------------
         // CREAR CUOTAS
-        // ----------------------------------------------------------
-        // Antes se ejecutaba un INSERT por cada cuota.
-        // Ahora generamos las cuotas en memoria y realizamos
-        // un solo INSERT múltiple.
+        //
+        // IMPORTANTE:
+        // Se mantienen las relaciones con connect exactamente
+        // como estaban en tu código original.
+        for (let i = 0; i < cuotas; i++) {
+          await tx.cuota.create({
+            data: {
+              estado: false,
 
-        const cuotasData = Array.from(
-          { length: numeroCuotas },
-          (_, index) => ({
-            estado: false,
+              monto: montoCuota,
 
-            monto: montoCuota,
+              numero_cuota: i + 1,
 
-            numero_cuota: index + 1,
+              fecha_vencimiento:
+                addExactMonthPreservingDate(
+                  fechaInicio,
+                  i + 1
+                ),
 
-            fecha_vencimiento: addExactMonthPreservingDate(
-              fechaInicio,
-              index + 1
-            ),
+              proyecto: {
+                connect: {
+                  id: proyectoId,
+                },
+              },
 
-            proyecto_id: proyectoId,
-
-            pago_id: pago.id,
-          })
-        );
-
-        await tx.cuota.createMany({
-          data: cuotasData,
-        });
+              pago: {
+                connect: {
+                  id: pago.id,
+                },
+              },
+            },
+          });
+        }
 
         pagos.push(pago);
       }
 
-      // ============================================================
-      // 6. ACTUALIZAR DISPONIBILIDAD DE TODOS LOS PREDIOS
-      // ============================================================
-      // Antes se realizaba un UPDATE por cada predio.
-      // Ahora se actualizan todos con una sola consulta.
+      // ACTUALIZAR DISPONIBILIDAD DE TODOS LOS PREDIOS
+      //
+      // Esta optimización es segura porque tu código original
+      // ya utilizaba los campos id y proyecto_id.
 
       await tx.predio.updateMany({
         where: {
@@ -432,10 +414,7 @@ async function createPagosByPredios(req, data) {
         },
       });
 
-      // ============================================================
-      // 7. RETORNO COMPATIBLE CON LA VERSIÓN ANTERIOR
-      // ============================================================
-
+      // RETORNO COMPATIBLE CON LA VERSIÓN ANTERIOR
       if (pagos.length === 1) {
         return pagos[0];
       }
@@ -443,10 +422,7 @@ async function createPagosByPredios(req, data) {
       return pagos;
     },
     {
-      // Tiempo máximo esperando obtener una transacción disponible.
       maxWait: 10000,
-
-      // Tiempo máximo que puede permanecer abierta la transacción.
       timeout: 30000,
     }
   );
