@@ -223,186 +223,233 @@ async function createPago(req, data) {
 }
 
 async function createPagosByPredios(req, data) {
-
   const proyectoId = req.user.proyectoId;
 
-  // Compatibilidad con la versión anterior
+  // Compatibilidad con la versión anterior:
+  // - Nueva versión: data.predios = [1, 2, 3]
+  // - Versión anterior: data.predio = 1
   const predios = data.predios ?? [data.predio];
 
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(
+    async (tx) => {
+      // ============================================================
+      // 1. VALIDAR PREDIOS
+      // ============================================================
 
-    // VALIDAR PREDIOS
-    const prediosDb = await tx.predio.findMany({
-      where: {
-        id: {
-          in: predios
-        },
-        proyecto_id: proyectoId
-      }
-    });
-
-    if (prediosDb.length !== predios.length) {
-      throw new Error("Uno o más predios no fueron encontrados.");
-    }
-
-    // VALIDAR QUE LOS PREDIOS NO TENGAN UN PAGO
-    const pagosExistentes = await tx.pago.findMany({
-      where: {
-        proyecto_id: proyectoId,
-        predio_id: {
-          in: predios
-        }
-      },
-      include: {
-        predio: {
-          select: {
-            id: true,
-            manzana: {
-              select: {
-                valor: true,
-              },
-            },
-            lote: {
-              select: {
-                valor: true,
-              },
-            },
-          }
-        }
-      }
-    });
-
-    if (pagosExistentes.length > 0) {
-
-      const lista = pagosExistentes
-        .map(p => `${p.predio?.manzana?.valor ?? "N/A"} - ${p.predio?.lote?.valor ?? "N/A"} (ID ${p.predio_id})`)
-        .join(", ");
-
-      throw new Error(
-        `Los siguientes predios ya tienen un plan de pagos: ${lista}`
-      );
-    }
-
-    // VALIDAR CLIENTES
-    const clientes = await tx.cliente.findMany({
-      where: {
-        id: {
-          in: data.clientes
-        },
-        proyecto_id: proyectoId
-      }
-    });
-
-    if (clientes.length !== data.clientes.length) {
-      throw new Error("Clientes inválidos.");
-    }
-
-    const fechaInicio = parseFechaReferenciaUTC(
-      data.fechaCuotaInicial
-    );
-
-    const cuotas = Number(data.numeroCuotas);
-    const total = Number(data.precioTotal);
-    const inicial = Number(data.cuotaInicial);
-
-    if (
-      isNaN(cuotas) ||
-      isNaN(total) ||
-      isNaN(inicial)
-    ) {
-      throw new Error("Datos numéricos inválidos.");
-    }
-
-    const pagos = [];
-
-    // CREAR UN PAGO POR CADA PREDIO
-    for (const predioId of predios) {
-
-      // CREAR PAGO
-      const pago = await tx.pago.create({
-        data: {
-          cuota_inicial: data.cuotaInicial,
-          precio_total: data.precioTotal,
-          saldo: data.precioTotal,
-          saldo_actual: data.precioTotal,
-
-          predio: {
-            connect: {
-              id: predioId
-            }
+      const prediosDb = await tx.predio.findMany({
+        where: {
+          id: {
+            in: predios,
           },
-
-          proyecto: {
-            connect: {
-              id: proyectoId
-            }
-          }
+          proyecto_id: proyectoId,
         },
       });
 
-      // RELACIONAR CLIENTES
-      await Promise.all(
-        data.clientes.map(clienteId =>
-          tx.cliente_pago.create({
-            data: {
-              pago_id: pago.id,
-              cliente_id: clienteId,
+      if (prediosDb.length !== predios.length) {
+        throw new Error("Uno o más predios no fueron encontrados.");
+      }
+
+      // ============================================================
+      // 2. VALIDAR QUE LOS PREDIOS NO TENGAN UN PLAN DE PAGOS
+      // ============================================================
+
+      const pagosExistentes = await tx.pago.findMany({
+        where: {
+          proyecto_id: proyectoId,
+          predio_id: {
+            in: predios,
+          },
+        },
+        include: {
+          predio: {
+            select: {
+              id: true,
+              manzana: {
+                select: {
+                  valor: true,
+                },
+              },
+              lote: {
+                select: {
+                  valor: true,
+                },
+              },
             },
-          })
-        )
+          },
+        },
+      });
+
+      if (pagosExistentes.length > 0) {
+        const lista = pagosExistentes
+          .map(
+            (pago) =>
+              `${pago.predio?.manzana?.valor ?? "N/A"} - ${
+                pago.predio?.lote?.valor ?? "N/A"
+              } (ID ${pago.predio_id})`
+          )
+          .join(", ");
+
+        throw new Error(
+          `Los siguientes predios ya tienen un plan de pagos: ${lista}`
+        );
+      }
+
+      // ============================================================
+      // 3. VALIDAR CLIENTES
+      // ============================================================
+
+      const clientes = await tx.cliente.findMany({
+        where: {
+          id: {
+            in: data.clientes,
+          },
+          proyecto_id: proyectoId,
+        },
+      });
+
+      if (clientes.length !== data.clientes.length) {
+        throw new Error("Clientes inválidos.");
+      }
+
+      // ============================================================
+      // 4. PREPARAR Y VALIDAR DATOS
+      // ============================================================
+
+      const fechaInicio = parseFechaReferenciaUTC(data.fechaCuotaInicial);
+
+      const numeroCuotas = Number(data.numeroCuotas);
+      const precioTotal = Number(data.precioTotal);
+      const cuotaInicial = Number(data.cuotaInicial);
+
+      if (
+        Number.isNaN(numeroCuotas) ||
+        Number.isNaN(precioTotal) ||
+        Number.isNaN(cuotaInicial)
+      ) {
+        throw new Error("Datos numéricos inválidos.");
+      }
+
+      const montoCuota = Math.ceil(
+        (precioTotal - cuotaInicial) / numeroCuotas
       );
 
-      // CREAR CUOTAS
-      for (let i = 0; i < Number(data.numeroCuotas); i++) {
+      const pagos = [];
 
-        await tx.cuota.create({
+      // ============================================================
+      // 5. CREAR UN PAGO POR CADA PREDIO
+      // ============================================================
+
+      for (const predioId of predios) {
+        // ----------------------------------------------------------
+        // CREAR PAGO
+        // ----------------------------------------------------------
+
+        const pago = await tx.pago.create({
           data: {
-            estado: false,
-            monto: Math.ceil(
-              Number(data.precioTotal - data.cuotaInicial)
-              /
-              Number(data.numeroCuotas)
-            ),
-            numero_cuota: i + 1,
-            fecha_vencimiento: addExactMonthPreservingDate(
-              fechaInicio,
-              i + 1
-            ),
+            // Mantengo los valores originales para conservar
+            // exactamente el comportamiento anterior.
+            cuota_inicial: data.cuotaInicial,
+            precio_total: data.precioTotal,
+            saldo: data.precioTotal,
+            saldo_actual: data.precioTotal,
+
+            predio: {
+              connect: {
+                id: predioId,
+              },
+            },
+
             proyecto: {
               connect: {
-                id: proyectoId
-              }
-            },
-            pago: {
-              connect: {
-                id: pago.id
+                id: proyectoId,
               },
             },
           },
         });
+
+        // ----------------------------------------------------------
+        // RELACIONAR CLIENTES
+        // ----------------------------------------------------------
+        // Antes se ejecutaba un create por cliente.
+        // Ahora se realiza un solo INSERT múltiple.
+
+        await tx.cliente_pago.createMany({
+          data: data.clientes.map((clienteId) => ({
+            pago_id: pago.id,
+            cliente_id: clienteId,
+          })),
+        });
+
+        // ----------------------------------------------------------
+        // CREAR CUOTAS
+        // ----------------------------------------------------------
+        // Antes se ejecutaba un INSERT por cada cuota.
+        // Ahora generamos las cuotas en memoria y realizamos
+        // un solo INSERT múltiple.
+
+        const cuotasData = Array.from(
+          { length: numeroCuotas },
+          (_, index) => ({
+            estado: false,
+
+            monto: montoCuota,
+
+            numero_cuota: index + 1,
+
+            fecha_vencimiento: addExactMonthPreservingDate(
+              fechaInicio,
+              index + 1
+            ),
+
+            proyecto_id: proyectoId,
+
+            pago_id: pago.id,
+          })
+        );
+
+        await tx.cuota.createMany({
+          data: cuotasData,
+        });
+
+        pagos.push(pago);
       }
 
-      // ACTUALIZAR DISPONIBILIDAD
+      // ============================================================
+      // 6. ACTUALIZAR DISPONIBILIDAD DE TODOS LOS PREDIOS
+      // ============================================================
+      // Antes se realizaba un UPDATE por cada predio.
+      // Ahora se actualizan todos con una sola consulta.
+
       await tx.predio.updateMany({
         where: {
-          id: predioId,
-          proyecto_id: proyectoId
+          id: {
+            in: predios,
+          },
+          proyecto_id: proyectoId,
         },
         data: {
           disponible: false,
         },
       });
 
-      pagos.push(pago);
-    }
+      // ============================================================
+      // 7. RETORNO COMPATIBLE CON LA VERSIÓN ANTERIOR
+      // ============================================================
 
-    // Si solo se creó un pago, devuelve un objeto (compatibilidad)
-    if (pagos.length === 1) {
-      return pagos[0];
-    }
+      if (pagos.length === 1) {
+        return pagos[0];
+      }
 
-    return pagos;
-  });
+      return pagos;
+    },
+    {
+      // Tiempo máximo esperando obtener una transacción disponible.
+      maxWait: 10000,
+
+      // Tiempo máximo que puede permanecer abierta la transacción.
+      timeout: 30000,
+    }
+  );
 }
 
 async function updatePago(req, id, data) {
