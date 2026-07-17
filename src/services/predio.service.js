@@ -43,6 +43,18 @@ async function createPredio(req, data) {
     data: {
       ...safeData,
 
+      manzana: {
+        connect: {
+          id: manzana.id
+        }
+      },
+
+      lote: {
+        connect: {
+          id: lote.id
+        }
+      },
+
       proyecto: {
         connect: {
           id: proyectoId
