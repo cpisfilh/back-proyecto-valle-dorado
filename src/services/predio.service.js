@@ -37,7 +37,7 @@ async function createPredio(req, data) {
     throw new Error("Lote no encontrado.");
   }
 
-  const { proyecto_id, ...safeData } = data;
+  const { proyecto_id, manzana_id, lote_id, ...safeData } = data;
 
   return await prisma.predio.create({
     data: {
